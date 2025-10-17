@@ -6,7 +6,7 @@ import { AppWindow } from "../../AppWindow";
 import { kHotkeys, kWindowNames } from "../../consts";
 
 import ReactDOM from "react-dom/client";
-import { GameState, GameStateGuesser, GameStateMap, GameStateType } from "../../game_state/GameState";
+import { GameState, GameStateMap, GameStateType, MapResolver } from "../../game_state/GameState";
 import { CalloutApp, useCalloutOrientation } from "./callout-app";
 
 import { useMapBrowserNavigation } from "./browser/use-map-browser-navigation";
@@ -21,8 +21,8 @@ export class Callouts extends AppWindow {
     super(kWindowNames.callouts);
 
     overwolf.windows.getMainWindow().bus.on('game-state', gs => this.detectChangeMap(gs));
-    overwolf.windows.getMainWindow().bus.on('select-map', map => {
-      this.currentMap = GameStateGuesser.makeMap({ mapFile: map.fileName, match: 1, realm: map.realm });
+    overwolf.windows.getMainWindow().bus.on('select-map', async map => {
+      this.currentMap = await MapResolver.makeMap({ mapFile: map.fileName, realm: map.realm });
       this.renderMap();
     });
 

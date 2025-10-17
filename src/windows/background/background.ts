@@ -6,12 +6,12 @@ import {
 
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
-import { GameState, GameStateGuesser } from '../../game_state/GameState';
+import { GameState, GameStateGuesser, MapResolver } from '../../game_state/GameState';
 import { OcrAreasResult, performOcrAreas } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
+import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../in_game/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
-import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 
 /* ============================================================================
  * App-wide event bus
@@ -224,10 +224,13 @@ class BackgroundController {
     this._ocrInterval = setInterval(async () => {
       // Keep the original throttling and gating as-is.
       if (lock || (Date.now() - last) < 1000) return;
+      lock = true;
 
       try {
         const res = await performOcrAreas(OCR_AREAS as any);
         this.evaluateRes(res);
+      } catch (e) {
+        // Shut
       } finally {
         last = Date.now();
         lock = false;

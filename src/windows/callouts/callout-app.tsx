@@ -4,13 +4,13 @@ import { useDebounce } from "@uidotdev/usehooks";
 import { motion } from 'motion/react';
 import { CSSProperties, useEffect, useState } from "react";
 import { create } from "zustand";
-import { GameStateGuesser, GameStateMap } from "../../game_state/GameState";
+import { GameStateMap, MapResolver } from "../../game_state/GameState";
 import { MapDirectory } from "../../generated-map-directory";
 import { useHotkeys } from "../../utils/hooks/hotkey-hook";
+import { createStorage } from '../../utils/localstorage/typed-localstorage';
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { CalloutMapBrowser } from "./browser/CalloutBrowser";
 import { CALLOUT_SETTINGS } from "./callout-settings";
-import { createStorage } from '../../utils/localstorage/typed-localstorage';
 
 const CustomChip = (props: { label: string, hotkey: string, style?: CSSProperties }) => {
   return (
@@ -28,7 +28,8 @@ const CustomChip = (props: { label: string, hotkey: string, style?: CSSPropertie
 
 const mockRealm: keyof typeof MapDirectory = "Autohaven Wreckers";
 const mockMapFile: typeof MapDirectory[typeof mockRealm][number] = "Wreckers Yard.webp";
-const mockMap = GameStateGuesser.makeMap({ realm: mockRealm, mapFile: mockMapFile, match: 1 });
+let mockMap: GameStateMap = null;
+MapResolver.makeMap({ realm: mockRealm, mapFile: mockMapFile }).then(map => mockMap = map);
 
 const useManualMap = createStorage<{ map: GameStateMap | null }>('CALLOUT_MANUAL_MAP', { map: null });
 const setManualMap = (map: GameStateMap | null) => useManualMap.update({ map });

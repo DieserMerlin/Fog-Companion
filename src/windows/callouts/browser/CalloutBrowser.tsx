@@ -1,5 +1,5 @@
 import useIsFocusVisible from '@mui/utils/useIsFocusVisible';
-import { GameStateGuesser, GameStateMap } from "../../../game_state/GameState";
+import { GameStateGuesser, GameStateMap, MapResolver } from "../../../game_state/GameState";
 import { Accordion } from "../../../utils/mui/Accordion";
 import { useMapDir } from "./use-callout-map-dir";
 import { useMapBrowserNavigation } from "./use-map-browser-navigation";
@@ -25,8 +25,8 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
     return map1?.mapFile === map2?.mapFile && map1?.realm === map2?.realm;
   };
 
-  const selectMap = (map: { realm: string, mapFile: string }) => {
-    props.onSelect(isEqualMap(map, props.current) ? null : GameStateGuesser.makeMap({ ...map, match: 1 }));
+  const selectMap = async (map: { realm: string, mapFile: string }) => {
+    props.onSelect(isEqualMap(map, props.current) ? null : await MapResolver.makeMap({ ...map }));
     CALLOUT_SETTINGS.update({ browser: false });
   };
 
