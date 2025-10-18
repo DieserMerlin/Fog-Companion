@@ -1,20 +1,17 @@
 {
   "name": "overwolf-dbd-comp-companion",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "DBD companion app for the competitive scene.",
   "main": "index.js",
   "scripts": {
     "generate-map-dir": "npx ts-node tools/generate-map-directory.ts",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "build:opk": "cross-env MAKE_OPK=true vite build",
-    "build:beta": "cross-env MAKE_OPK=beta vite build",
-    "build:ver+opk": "cross-env SET_VERSION=1.2.3 MAKE_OPK=true vite build"
+    "build": "npm run generate-map-dir && vite build",
+    "dev": "npm run build -- --watch",
+    "build:opk": "cross-env MAKE_OPK=true npm run build"
   },
   "keywords": [],
-  "author": "Merlin",
-  "license": "ISC",
+  "author": "Merlin Westphal",
+  "license": "GPL-3.0-only",
   "devDependencies": {
     "@overwolf/overwolf-api-ts": "^1.3.5",
     "@overwolf/types": "^2.33.0",
@@ -22,6 +19,8 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/semver": "^7.7.1",
+    "cross-env": "^10.1.0",
+    "license-checker-rseidelsohn": "^4.4.2",
     "semver": "^7.7.3",
     "ts-loader": "^8.0.17",
     "ts-node": "^10.9.2",

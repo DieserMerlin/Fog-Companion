@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2017",
-    "module": "none",
+    "module": "esnext",
     "sourceMap": true,
     "outDir": "./dist",
     "moduleResolution": "node",
@@ -11,6 +11,7 @@
     "noImplicitAny": false,
     "strictNullChecks": false,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "lib": [
       "ES2020",
       "DOM"

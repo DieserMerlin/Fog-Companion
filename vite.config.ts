@@ -1,5 +1,8 @@
 import { defineConfig, Plugin } from 'vite';
 import { resolve } from 'path';
+import OverwolfPlugin from './.vite/plugins/OverwolfPlugin';
+
+process.env.NODE_ENV = "production";
 
 const r = (p: string) => resolve(__dirname, p);
 
@@ -52,5 +55,6 @@ export default defineConfig({
   },
   plugins: [
     flattenHtmlPaths(),
-  ],
+    OverwolfPlugin({ makeOpk: process.env.MAKE_OPK, setVersion: process.env.SET_VERSION }),
+  ]
 });

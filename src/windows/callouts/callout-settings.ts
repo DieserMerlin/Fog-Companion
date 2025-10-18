@@ -1,4 +1,4 @@
-import { GameStateMap } from "../../game_state/GameState";
+import { create } from "zustand";
 import { createStorage } from "../../utils/localstorage/typed-localstorage";
 
 
@@ -11,8 +11,6 @@ export type CalloutSettings = {
   showHotkeys: boolean;
 
   browser: boolean;
-
-  map: GameStateMap | null;
 }
 
 export const CALLOUT_SETTINGS = createStorage<CalloutSettings>('CALLOUT_SETTINGS', {
@@ -23,7 +21,7 @@ export const CALLOUT_SETTINGS = createStorage<CalloutSettings>('CALLOUT_SETTINGS
 
   showHotkeys: true,
 
-  map: null,
-
   browser: false,
 });
+
+export const useCalloutVariant = create<{ variant: number, next: () => void }>((set, get) => ({ variant: 0, next: () => set({ variant: get().variant + 1 }) }));

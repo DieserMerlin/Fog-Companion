@@ -1,9 +1,12 @@
 import { create } from "zustand";
-import { MapDirectory } from "../../../generated-map-directory";
+import { MapResolver } from "../../../game_state/GameState";
 
-type Realm = { realm: string, mapFiles: string[] };
+export const useMapDir = create<{ realms: Record<string, Record<string, number>>, update: (refresh: boolean) => void }>((set) => ({
+  realms: {},
+  update: async (refresh: boolean) => {
+    if (refresh) await MapResolver.reloadCache();
+    set({ realms: MapResolver.countsByRealm() });
+  }
+}));
 
-export const useMapDir = create<{ realms: Realm[] }>(() => ({ realms: [] }));
-Object
-  .keys(MapDirectory)
-  .map(realm => useMapDir.getState().realms.push({ realm, mapFiles: MapDirectory[realm] }));
+useMapDir.getState().update(false);

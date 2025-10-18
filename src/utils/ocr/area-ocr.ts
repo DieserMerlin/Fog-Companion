@@ -1,103 +1,142 @@
 import { createWorker, PSM, Worker } from "tesseract.js";
 
-const STATIC_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/() .,";
-export const CANVAS = document.createElement("canvas");
+const STATIC_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/() .,|";
 
 // --- defaults you can tweak ---
-const DEFAULT_LUM_MIN = 120;         // your old THRESHOLD
-const DEFAULT_CHROMA_MAX = 18;       // "how gray" a pixel must be (0..255). 10–25 works well.
-const MID_GRAY_LUM_MIN = 150;        // optional: keep darker gray letters if very gray
-const MID_GRAY_CHROMA_MAX = 10;      // must be even more neutral to pass this lower luminance gate
+const DEFAULT_LUM_MIN = 120;
+const DEFAULT_CHROMA_MAX = 18;
+const MID_GRAY_LUM_MIN = 150;
+const MID_GRAY_CHROMA_MAX = 10;
 
 // --- NEW defaults for the edge-uniform detector ---
-const DEFAULT_BLACK_MAX = 12;          // per-channel max for a "black" pixel (inclusive)
-const DEFAULT_SAMPLE_STRIDE = 2;       // 1 = check every pixel
-const DEFAULT_MIN_MATCH_RATIO = 0.98;  // how much must match to pass (0..1)
-const DEFAULT_COLOR_DELTA_MAX = 8;     // tolerance for "same color" (per-channel, 0..255)
+const DEFAULT_BLACK_MAX = 12;
+const DEFAULT_SAMPLE_STRIDE = 2;
+const DEFAULT_MIN_MATCH_RATIO = 0.98;
+const DEFAULT_COLOR_DELTA_MAX = 8;
 
-// ---------- Worker (singleton) ----------
-let _workerPromise: Promise<Worker> | null = null;
-async function getWorker(): Promise<Worker> {
-  if (!_workerPromise) {
-    _workerPromise = (async () => {
-      const worker = await createWorker("eng");
-      await worker.setParameters({
-        tessedit_pageseg_mode: PSM.SINGLE_WORD,
-        preserve_interword_spaces: "1",
-        tessedit_char_whitelist: STATIC_WHITELIST,
-      });
-      return worker;
+// ---------- Worker Pool (3 workers) ----------
+type WorkerWithParams = Worker & { __lastParams?: Record<string, string> };
+
+class TesseractPool {
+  private size: number;
+  private pool: WorkerWithParams[] = [];
+  private queue: Array<(w: WorkerWithParams) => Promise<void>> = [];
+  private busy = 0;
+  private initPromise: Promise<void> | null = null;
+
+  constructor(size = 3) { this.size = size; }
+
+  private async init() {
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = (async () => {
+      const workers = await Promise.all(
+        Array.from({ length: this.size }, async () => {
+          const w = (await createWorker("eng")) as WorkerWithParams;
+          // sensible defaults; per-job overrides below
+          await w.setParameters({
+            tessedit_pageseg_mode: PSM.SPARSE_TEXT_OSD,
+            preserve_interword_spaces: "1",
+            tessedit_char_whitelist: STATIC_WHITELIST,
+          });
+          w.__lastParams = {
+            tessedit_pageseg_mode: String(PSM.SPARSE_TEXT_OSD),
+            preserve_interword_spaces: "1",
+            tessedit_char_whitelist: STATIC_WHITELIST,
+          };
+          return w;
+        })
+      );
+      this.pool.push(...workers);
     })();
+    return this.initPromise;
   }
-  return _workerPromise;
+
+  async runJob<T>(fn: (w: WorkerWithParams) => Promise<T>): Promise<T> {
+    await this.init();
+    return new Promise<T>((resolve, reject) => {
+      const job = async (worker: WorkerWithParams) => {
+        try {
+          this.busy++;
+          const res = await fn(worker);
+          resolve(res);
+        } catch (e) {
+          reject(e);
+        } finally {
+          this.busy--;
+          // return worker to pool and tick queue
+          this.pool.push(worker);
+          this.tick();
+        }
+      };
+      this.queue.push(job as any);
+      this.tick();
+    });
+  }
+
+  private tick() {
+    while (this.pool.length && this.queue.length) {
+      const w = this.pool.pop()!;
+      const j = this.queue.shift()!;
+      // fire and forget (promise handled in runJob)
+      j(w);
+    }
+  }
+
+  async destroy() {
+    // optional: call when app shuts down
+    await Promise.all(this.pool.map(w => w.terminate()));
+    this.pool.length = 0;
+  }
 }
 
+const pool = new TesseractPool(3);
+
 // ---------- Public API ----------
-/**
- * A normalized rectangle: values are 0..1 relative to the full screenshot.
- * Example: bottom-left quarter => { x: 0, y: 0.5, width: 0.5, height: 0.5 }
- */
-export type NormalizedRect = {
-  x: number;      // 0..1 from left
-  y: number;      // 0..1 from top
-  w: number;  // 0..1
-  h: number; // 0..1
-};
+export type NormalizedRect = { x: number; y: number; w: number; h: number };
 
 export type ScanArea = {
   id: string;
   rect: NormalizedRect;
-  threshold?: number;        // deprecated alias for lumMin
+  threshold?: number;
   psm?: PSM;
   whitelist?: string;
-  lumMin?: number;           // new: primary luminance cut (0..255)
-  chromaMax?: number;        // new: max allowed chroma (0..255)
+  lumMin?: number;
+  chromaMax?: number;
 };
 
-/** ---- NEW: Discriminated area types (backward compatible) ---- */
-export type OcrScanArea = ScanArea & { type?: "ocr" }; // default if type omitted
+export type OcrScanArea = ScanArea & { type?: "ocr" };
 
-/**
- * Upgraded "pure-black" spec: still called "pure-black" for drop-in,
- * but now supports percentage pass + low-variance uniform color mode.
- */
 export type PureBlackScanArea = {
   id: string;
   type: "pure-black";
-  rects: NormalizedRect[];     // strips to test (edges)
-  blackMax?: number;           // <= this per channel counts as "black"
-  sampleStride?: number;       // pixel step for speed
-  minMatchRatio?: number;      // 0..1, fraction of sampled pixels that must match
-  /**
-   * Pixels within `colorDeltaMax` of the dominant color ALSO count as matches,
-   * even if they are not black (handles dark-but-uniform overlays/borders).
-   */
-  colorDeltaMax?: number;      // per-channel tolerance for "same color"
+  rects: NormalizedRect[];
+  blackMax?: number;
+  sampleStride?: number;
+  minMatchRatio?: number;
+  colorDeltaMax?: number;
 };
 
 export type AnyScanArea = OcrScanArea | PureBlackScanArea;
 
-/** ---- Results ---- */
 export type OCRSingleResult = { type: "ocr"; text: string[]; confidence: number };
 export type PureBlackResult = {
   type: "pure-black";
-  passed: boolean;         // overall pass/fail considering percentage
-  ratio: number;           // matched / tested
-  tested: number;          // sampled pixels
-  matched: number;         // pixels that matched (black OR uniform color)
-  dominant?: { r: number; g: number; b: number }; // estimated dominant color
-  firstFail?: { x: number; y: number; r: number; g: number; b: number; a: number }; // first non-matching (optional)
+  passed: boolean;
+  ratio: number;
+  tested: number;
+  matched: number;
+  dominant?: { r: number; g: number; b: number };
+  firstFail?: { x: number; y: number; r: number; g: number; b: number; a: number };
 };
 
 export type OcrAreasResult = Record<string, OCRSingleResult | PureBlackResult>;
 
 /**
  * Captures a screenshot (while the game is focused) and OCRs multiple areas.
- * Returns an object keyed by area.id with the lines it found.
+ * Now uses a 3-worker scheduler to process areas concurrently.
  */
-// --- performOcrAreas(...) stays the same signature ---
 export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasResult | null> {
-  // 0) Ensure there's a running, focused game. If not, abort to avoid desktop screenshots.
+  // 0) Ensure there's a running, focused game.
   const gi = await new Promise<overwolf.games.GetRunningGameInfoResult>((resolve) =>
     overwolf.games.getRunningGameInfo(resolve)
   );
@@ -105,7 +144,7 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
     return null;
   }
 
-  // 1) Take screenshot (now guaranteed while game is focused)
+  // 1) Take screenshot
   const shot = await new Promise<overwolf.media.FileResult>((resolve) =>
     overwolf.media.takeScreenshot(resolve)
   );
@@ -128,139 +167,67 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
   try {
     const img = await loadImage(url);
     const needOcr = areas.some(a => (a as OcrScanArea).type === "ocr" || (a as OcrScanArea).type === undefined);
-    const worker = needOcr ? await getWorker() : null;
+    if (needOcr) {
+      // warm the pool (lazy anyway)
+      await (pool as any).init?.();
+    }
 
     const results: OcrAreasResult = {};
+    // Prepare jobs (pure-black runs immediately on main thread; OCR goes to pool).
+    const jobs: Promise<void>[] = [];
 
     for (const area of areas) {
-      // ---------- NEW: upgraded PURE-BLACK / UNIFORM detector ----------
       if ((area as PureBlackScanArea).type === "pure-black") {
-        const {
-          id,
-          rects: rects,
-          blackMax = DEFAULT_BLACK_MAX,
-          sampleStride = DEFAULT_SAMPLE_STRIDE,
-          minMatchRatio = DEFAULT_MIN_MATCH_RATIO,
-          colorDeltaMax = DEFAULT_COLOR_DELTA_MAX,
-        } = area as PureBlackScanArea;
-
-        let tested = 0;
-        let matched = 0;
-        let firstFail: PureBlackResult["firstFail"] | undefined;
-        // Running estimate of dominant color via incremental mean (robust and cheap)
-        let meanR = 0, meanG = 0, meanB = 0;
-        let seen = 0;
-
-        for (const rect of rects) {
-          const { sx, sy, sw, sh } = normalizedToPixels(rect, img.width, img.height);
-
-          CANVAS.width = sw;
-          CANVAS.height = sh;
-          const ctx = CANVAS.getContext("2d", { willReadFrequently: true })!;
-          ctx.clearRect(0, 0, sw, sh);
-          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-
-          const data = ctx.getImageData(0, 0, sw, sh);
-          const { width, height, data: px } = data;
-
-          // Two-pass in one loop:
-          // 1) Update dominant color online.
-          // 2) Count matches: black OR within delta of current dominant.
-          for (let y = 0; y < height; y += sampleStride) {
-            const baseY = y * width * 4;
-            for (let x = 0; x < width; x += sampleStride) {
-              const i = baseY + x * 4;
-              const r = px[i + 0], g = px[i + 1], b = px[i + 2], a = px[i + 3];
-              tested++;
-
-              // Online mean update (Kahan not needed here)
-              seen++;
-              meanR += (r - meanR) / seen;
-              meanG += (g - meanG) / seen;
-              meanB += (b - meanB) / seen;
-
-              const isBlack =
-                r <= blackMax && g <= blackMax && b <= blackMax;
-
-              // Compare to *current* dominant color estimate
-              const dr = Math.abs(r - meanR);
-              const dg = Math.abs(g - meanG);
-              const db = Math.abs(b - meanB);
-              const isUniform =
-                dr <= colorDeltaMax && dg <= colorDeltaMax && db <= colorDeltaMax;
-
-              if (isBlack || isUniform) {
-                matched++;
-              } else if (!firstFail) {
-                firstFail = { x: clamp(sx + x, 0, img.width - 1), y: clamp(sy + y, 0, img.height - 1), r, g, b, a };
-              }
-            }
-          }
-
-          // Early stop across rects if even perfect remaining can’t reach minMatchRatio
-          const remainingWorstCaseMatched = matched + (tested === 0 ? 0 : 0); // (info only)
-          // We can compute theoretical max achievable ratio; cheap bound:
-          // If current ratio already < minMatchRatio and even counting all remaining as matches
-          // can't recover, then break. (We don't know remaining samples count yet without scanning.)
-          // For simplicity and stability, we skip an aggressive early stop here to avoid undercounting.
-        }
-
-        const ratio = tested > 0 ? matched / tested : 0;
-        const passed = ratio >= minMatchRatio;
-
-        results[id] = {
-          type: "pure-black",
-          passed,
-          ratio,
-          tested,
-          matched,
-          dominant: {
-            r: Math.round(meanR),
-            g: Math.round(meanG),
-            b: Math.round(meanB),
-          },
-          ...(firstFail ? { firstFail } : {}),
-        };
+        // Run *asynchronously* to interleave with OCR jobs (non-blocking scheduling).
+        jobs.push((async () => {
+          const res = runPureBlack(img, area as PureBlackScanArea);
+          results[(area as PureBlackScanArea).id] = res;
+        })());
         continue;
       }
 
-      // ---------- OCR branch (unchanged) ----------
-      const {
-        id,
-        rect,
-        lumMin = (area as OcrScanArea).threshold ?? DEFAULT_LUM_MIN,
-        chromaMax = DEFAULT_CHROMA_MAX,
-        psm = PSM.SPARSE_TEXT_OSD,
-        whitelist = STATIC_WHITELIST,
-      } = area as OcrScanArea;
+      // OCR job via pool
+      const ocrArea = area as OcrScanArea;
+      jobs.push(pool.runJob(async (worker) => {
+        // Crop into a dedicated canvas to avoid contention
+        const { sx, sy, sw, sh } = normalizedToPixels(ocrArea.rect, img.width, img.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = sw;
+        canvas.height = sh;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
-      const { sx, sy, sw, sh } = normalizedToPixels(rect, img.width, img.height);
+        // Binarize in place
+        const lumMin = ocrArea.lumMin ?? ocrArea.threshold ?? DEFAULT_LUM_MIN;
+        const chromaMax = ocrArea.chromaMax ?? DEFAULT_CHROMA_MAX;
+        const imgData = ctx.getImageData(0, 0, sw, sh);
+        binarizeGrayOnlyInPlace(imgData, { lumMin, chromaMax });
+        ctx.putImageData(imgData, 0, 0);
 
-      CANVAS.width = sw;
-      CANVAS.height = sh;
-      const ctx = CANVAS.getContext("2d", { willReadFrequently: true })!;
-      ctx.clearRect(0, 0, sw, sh);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-
-      const imgData = ctx.getImageData(0, 0, sw, sh);
-      binarizeGrayOnlyInPlace(imgData, { lumMin, chromaMax });
-      ctx.putImageData(imgData, 0, 0);
-
-      if (worker) {
-        await worker.setParameters({
-          tessedit_pageseg_mode: psm,
-          tessedit_char_whitelist: whitelist,
+        // Minimize parameter churn per worker
+        const desiredParams: Record<string, string> = {
+          tessedit_pageseg_mode: String(ocrArea.psm ?? PSM.SPARSE_TEXT_OSD),
+          tessedit_char_whitelist: ocrArea.whitelist ?? STATIC_WHITELIST,
           preserve_interword_spaces: "1",
-        });
-      }
+        };
+        const last = worker.__lastParams || {};
+        const needsUpdate =
+          last.tessedit_pageseg_mode !== desiredParams.tessedit_pageseg_mode ||
+          last.tessedit_char_whitelist !== desiredParams.tessedit_char_whitelist;
 
-      const { data: ocr } = worker
-        ? await worker.recognize(CANVAS.toDataURL("image/png"))
-        : { data: { text: "", confidence: 0 } as any };
+        if (needsUpdate) {
+          await worker.setParameters(desiredParams);
+          worker.__lastParams = desiredParams;
+        }
 
-      const text = (ocr.text || "").trim();
-      results[id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
+        const { data: ocr } = await worker.recognize(canvas.toDataURL("image/png"));
+        const text = (ocr.text || "").trim();
+        results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
+      }));
     }
+
+    // Execute with concurrency via pool + async pure-black jobs
+    await Promise.all(jobs);
 
     return results;
   } finally {
@@ -269,7 +236,7 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
   }
 }
 
-// ----- helpers (unchanged + NEW) -----
+// ----- helpers -----
 
 function normalizedToPixels(rect: NormalizedRect, imgW: number, imgH: number) {
   const sx = clamp(Math.round(rect.x * imgW), 0, imgW - 1);
@@ -279,7 +246,6 @@ function normalizedToPixels(rect: NormalizedRect, imgW: number, imgH: number) {
   return { sx, sy, sw, sh };
 }
 
-// ---------- Image utils ----------
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -299,10 +265,9 @@ function binarizeGrayOnlyInPlace(
   for (let i = 0; i < px.length; i += 4) {
     const r = px[i + 0], g = px[i + 1], b = px[i + 2];
 
-    // --- chroma (how far from gray) ---
     const maxc = Math.max(r, g, b);
     const minc = Math.min(r, g, b);
-    const chroma = maxc - minc; // 0 = perfect gray, higher = more color
+    const chroma = maxc - minc;
 
     // default white background
     px[i + 0] = 255;
@@ -310,17 +275,9 @@ function binarizeGrayOnlyInPlace(
     px[i + 2] = 255;
 
     if (chroma <= chromaMax) {
-      // --- luminance (perceived brightness) ---
       const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-      // Main gate: bright, near-gray -> black text
-      if (lum >= lumMin) {
-        px[i + 0] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255;
-        continue;
-      }
-
-      // Optional catch: very neutral mid-gray (for smaller UI labels)
-      if (chroma <= MID_GRAY_CHROMA_MAX && lum >= MID_GRAY_LUM_MIN) {
+      if (lum >= lumMin || (chroma <= MID_GRAY_CHROMA_MAX && lum >= MID_GRAY_LUM_MIN)) {
         px[i + 0] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255;
       }
     }
@@ -338,13 +295,97 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function runPureBlack(img: HTMLImageElement, area: PureBlackScanArea): PureBlackResult {
+  const {
+    id,
+    rects,
+    blackMax = DEFAULT_BLACK_MAX,
+    sampleStride = DEFAULT_SAMPLE_STRIDE,
+    minMatchRatio = DEFAULT_MIN_MATCH_RATIO,
+    colorDeltaMax = DEFAULT_COLOR_DELTA_MAX,
+  } = area;
+
+  let tested = 0;
+  let matched = 0;
+  let firstFail: PureBlackResult["firstFail"] | undefined;
+
+  // Running mean for dominant color
+  let meanR = 0, meanG = 0, meanB = 0;
+  let seen = 0;
+
+  for (const rect of rects) {
+    const { sx, sy, sw, sh } = normalizedToPixels(rect, img.width, img.height);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    const data = ctx.getImageData(0, 0, sw, sh);
+    const { width, height, data: px } = data;
+
+    for (let y = 0; y < height; y += sampleStride) {
+      const baseY = y * width * 4;
+      for (let x = 0; x < width; x += sampleStride) {
+        const i = baseY + x * 4;
+        const r = px[i + 0], g = px[i + 1], b = px[i + 2], a = px[i + 3];
+        tested++;
+
+        seen++;
+        meanR += (r - meanR) / seen;
+        meanG += (g - meanG) / seen;
+        meanB += (b - meanB) / seen;
+
+        const isBlack = r <= blackMax && g <= blackMax && b <= blackMax;
+
+        const dr = Math.abs(r - meanR);
+        const dg = Math.abs(g - meanG);
+        const db = Math.abs(b - meanB);
+        const isUniform = dr <= colorDeltaMax && dg <= colorDeltaMax && db <= colorDeltaMax;
+
+        if (isBlack || isUniform) {
+          matched++;
+        } else if (!firstFail) {
+          firstFail = { x: clamp(sx + x, 0, img.width - 1), y: clamp(sy + y, 0, img.height - 1), r, g, b, a };
+        }
+      }
+    }
+  }
+
+  const ratio = tested > 0 ? matched / tested : 0;
+  const passed = ratio >= minMatchRatio;
+
+  return {
+    type: "pure-black",
+    passed,
+    ratio,
+    tested,
+    matched,
+    dominant: { r: Math.round(meanR), g: Math.round(meanG), b: Math.round(meanB) },
+    ...(firstFail ? { firstFail } : {}),
+  };
+}
+
 async function safeDelete(path?: string) {
+  console.log('SAFEDELETE', path);
   if (!path) return;
+
+  const basePath = await new Promise<string>((res, rej) =>
+    // @ts-expect-error
+    overwolf.extensions.io.getStoragePath("pictures", _res => _res.error ? rej(_res.error) : res(_res.path))
+  );
+  const all = await new Promise<string[]>(res =>
+    overwolf.io.dir(basePath, _res =>
+      res((_res.data || []).filter(f => f.type === "file").map(f => basePath + '\\' + f.name))
+    )
+  );
+
   try {
-    await new Promise<object>((resolve) =>
-      // @ts-expect-error Overwolf types
+    await Promise.all(all.map(path => new Promise<object>((resolve) =>
+      // @ts-expect-error
       overwolf.extensions.io.delete("pictures", path, resolve)
-    );
+    )));
   } catch {
     /* ignore cleanup errors */
   }

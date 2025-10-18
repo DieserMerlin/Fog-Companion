@@ -6,28 +6,18 @@ import { AppWindow } from "../../AppWindow";
 import { kHotkeys, kWindowNames } from "../../consts";
 
 import ReactDOM from "react-dom/client";
-import { GameState, GameStateMap, GameStateType, MapResolver } from "../../game_state/GameState";
 import { CalloutApp, useCalloutOrientation } from "./callout-app";
 
 import { useMapBrowserNavigation } from "./browser/use-map-browser-navigation";
-import { CALLOUT_SETTINGS } from "./callout-settings";
+import { CALLOUT_SETTINGS, useCalloutVariant } from "./callout-settings";
 
 export class Callouts extends AppWindow {
   private static _instance: Callouts;
 
-  private currentMap: GameStateMap | null = null;
-
   private constructor() {
     super(kWindowNames.callouts);
 
-    overwolf.windows.getMainWindow().bus.on('game-state', gs => this.detectChangeMap(gs));
-    overwolf.windows.getMainWindow().bus.on('select-map', async map => {
-      this.currentMap = await MapResolver.makeMap({ mapFile: map.fileName, realm: map.realm });
-      this.renderMap();
-    });
-
     this.setToggleHotkeyBehavior();
-    this.renderMap();
 
     overwolf.windows.getMainWindow().bus.on('game-info', state => {
       if (!state) return;
@@ -50,35 +40,8 @@ export class Callouts extends AppWindow {
     return this._instance;
   }
 
-  detectChangeMap(gameState: GameState) {
-    const newMap = gameState?.type === GameStateType.MATCH ? gameState.map || null : null;
-
-    // Don't switch on variant change
-    if (newMap && this.currentMap && [newMap.fullPath, ...newMap.variants?.map(map => map.fullPath)].includes(this.currentMap.fullPath))
-      return;
-
-    this.currentMap = newMap;
-    this.renderMap();
-  }
-
-  switchVariant() {
-    if (!!this.currentMap?.variants?.length) {
-      const maps = [this.currentMap, ...this.currentMap.variants];
-      this.currentMap.variants = undefined;
-      maps.push(maps.shift());
-      const [newMap, ...newVariants] = maps;
-      newMap.variants = newVariants;
-      this.currentMap = newMap;
-    }
-    this.renderMap();
-  }
-
-  async renderMap() {
-    CALLOUT_SETTINGS.update({ map: this.currentMap || null });
-  }
-
   private async setToggleHotkeyBehavior() {
-    OWHotkeys.onHotkeyDown(kHotkeys.mapSwitchVar, () => this.switchVariant());
+    OWHotkeys.onHotkeyDown(kHotkeys.mapSwitchVar, () => useCalloutVariant.getState().next());
     OWHotkeys.onHotkeyDown(kHotkeys.mapToggleBrowser, () => {
       const current = CALLOUT_SETTINGS.getValue().browser;
       CALLOUT_SETTINGS.update({ browser: !current });

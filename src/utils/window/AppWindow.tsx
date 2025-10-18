@@ -2,6 +2,7 @@ import { CssBaseline, GlobalStyles, ThemeProvider } from "@mui/material";
 import { PropsWithChildren } from "react";
 import { theme } from "../mui/theme";
 import { MotionConfig } from "motion/react";
+import React from "react";
 
 const cleanCss = `
 body {
@@ -121,9 +122,30 @@ const resizeCss = `
     }
 `;
 
+/**
+* Minimal Error Boundary that logs errors to the console
+* and *does not* render a fallback UI. This preserves the
+* last successfully committed UI so your app "continues to render
+* as before" after an error is caught.
+*/
+export class ErrorBoundary extends React.Component {
+  componentDidCatch(error, info) {
+    // Send this to your logging infra if desired
+    console.error("[ErrorBoundary]", error, info);
+  }
+
+  render() {
+    // @ts-expect-error No fallback UI — keep rendering children as-is
+    return this.props.children;
+  }
+}
+
+
+export default ErrorBoundary;
+
 export const BaseWindow = (props: PropsWithChildren<{ transparent?: boolean, fullWindowDrag?: boolean, resizable?: boolean }>) => {
   return (
-    <>
+    <ErrorBoundary>
       {props.resizable && <>
         <GlobalStyles styles={resizeCss} />
         <div id="resize">
@@ -153,6 +175,6 @@ export const BaseWindow = (props: PropsWithChildren<{ transparent?: boolean, ful
           {props.children}
         </ThemeProvider>
       </MotionConfig>
-    </>
+    </ErrorBoundary>
   );
 }

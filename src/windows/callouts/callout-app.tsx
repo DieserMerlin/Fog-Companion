@@ -10,7 +10,8 @@ import { useHotkeys } from "../../utils/hooks/hotkey-hook";
 import { createStorage } from '../../utils/localstorage/typed-localstorage';
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { CalloutMapBrowser } from "./browser/CalloutBrowser";
-import { CALLOUT_SETTINGS } from "./callout-settings";
+import { CALLOUT_SETTINGS, useCalloutVariant } from "./callout-settings";
+import { useGameState } from '../../utils/hooks/gamestate-hook';
 
 const CustomChip = (props: { label: string, hotkey: string, style?: CSSProperties }) => {
   return (
@@ -26,33 +27,43 @@ const CustomChip = (props: { label: string, hotkey: string, style?: CSSPropertie
   );
 }
 
+
 const mockRealm: keyof typeof MapDirectory = "Autohaven Wreckers";
 const mockMapFile: typeof MapDirectory[typeof mockRealm][number] = "Wreckers Yard.webp";
-let mockMap: GameStateMap = null;
-MapResolver.makeMap({ realm: mockRealm, mapFile: mockMapFile }).then(map => mockMap = map);
+let mockMap: GameStateMap = MapResolver.makeMap({ realm: mockRealm, mapFile: mockMapFile });
 
-const useManualMap = createStorage<{ map: GameStateMap | null }>('CALLOUT_MANUAL_MAP', { map: null });
-const setManualMap = (map: GameStateMap | null) => useManualMap.update({ map });
+const useManualMap = create<{ map: GameStateMap | null }>(() => ({ map: null }));
+const setManualMap = (map: GameStateMap | null) => {
+  useManualMap.setState({ map });
+}
 
 const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left' | 'right' }) => {
   const showHotkeys = CALLOUT_SETTINGS.hook(s => s.showHotkeys);
 
-  const _map = CALLOUT_SETTINGS.hook(s => s.map);
-  const manualMap = useManualMap.hook(s => s.map);
+  const _map = useGameState(s => s.state?.map);
+  const variant = useCalloutVariant(s => s.variant);
+  const manualMap = useManualMap(s => s.map);
 
-  const map = (_map || manualMap || (props.mock && mockMap));
+  let map = (_map || manualMap || (props.mock && mockMap));
+  const availableVariants = [map, ...(map.variants || [])];
+
+  const mapVariant = availableVariants[variant % availableVariants.length] || map;
 
   const { map_browser, map_showhide, map_switch_variant } = useHotkeys();
+
+  useEffect(() => useCalloutVariant.setState({ variant: 0 }), [map]);
+
+  console.log({ map, mapVariant });
 
   return (
     <Stack width={'100%'} height={'100%'} spacing={.5}>
       <Grid container spacing={.5} justifyContent={props.direction === 'right' ? 'flex-end' : undefined}>
         {showHotkeys && <>
-          {!!map && <CustomChip label="Show/Hide Map" hotkey={map_showhide} />}
-          {!!map && !!map.variants?.length && <CustomChip label="Switch Variant" hotkey={map_switch_variant} />}
+          {!!mapVariant && <CustomChip label="Show/Hide Map" hotkey={map_showhide} />}
+          {!!mapVariant && !!map.variants?.length && <CustomChip label="Switch Variant" hotkey={map_switch_variant} />}
           <CustomChip label="Map-Browser" hotkey={map_browser} />
         </>}
-        {!!map && !!map.credit && <CustomChip label="Graphic by" hotkey={map.credit} />}
+        {!!mapVariant && !!mapVariant.credit && <CustomChip label="Graphic by" hotkey={mapVariant.credit} />}
       </Grid>
       <motion.div
         style={{
@@ -60,12 +71,12 @@ const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left'
           width: '100%',
           height: '100%',
           overflow: 'auto',
-          backgroundImage: !!map ? 'url("' + map.fullPath + '")' : undefined,
+          backgroundImage: !!mapVariant ? 'url("' + mapVariant.fullPath + '")' : undefined,
           backgroundSize: 'contain',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: props.direction === 'right' ? 'top right' : 'top left',
         }}>
-        {props.browser && <CalloutMapBrowser current={map} onSelect={setManualMap} />}
+        {props.browser && <CalloutMapBrowser current={mapVariant} onSelect={setManualMap} />}
       </motion.div>
     </Stack>
   );

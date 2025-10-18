@@ -3,7 +3,7 @@
   "type": "WebApp",
   "meta": {
     "name": "DBD COMPanion",
-    "author": "Merlin",
+    "author": "DieserMerlin",
     "version": "0.1.2",
     "minimum-overwolf-version": "0.160.0",
     "description": "DBD companion app for the competitive scene.",

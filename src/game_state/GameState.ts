@@ -27,19 +27,8 @@ export type GameState = {
   map?: GameStateMap;
 }
 
-export type IndexedMapFile = {
-  dir: string;
-  fullPath: string;
-  fileName: string;
-  mapName: string;
-  usable: boolean;
-  realm: string; // inferred for custom maps (folder name or "Custom")
-};
-
 export const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"];
 const isEqual = (a: any, b: any) => a === b;
-
-type RunningGameInfo = overwolf.games.RunningGameInfo;
 
 // ===== File Provider Interface & Implementations =====
 
@@ -48,6 +37,13 @@ type MapFileEntry = {
   realm: string;               // “browsing realm” (can be "Custom" or MapDirectory realm)
   fileName: string;            // file name WITH extension
   fullPath: string;            // absolute (custom) or relative (vanilla) path
+};
+
+export type MapGroup = {
+  baseName: string;
+  realm: string;            // chosen main realm (browsing only)
+  main: MapFileEntry;
+  variants: MapFileEntry[]; // others sorted by variation number
 };
 
 export interface IMapFileProvider {
@@ -105,23 +101,63 @@ class CustomProvider implements IMapFileProvider {
       overwolf.io.dir(basePath, _res => res(_res.data || []))
     );
 
+    type ReadFileOpts = {
+      fullPath: string;
+      mime?: string;                // z.B. 'image/png'
+      as?: 'blob-url' | 'data-url'; // Ausgabeformat
+    };
+
+    function readFile({ fullPath, mime = 'image/png', as = 'blob-url' }: ReadFileOpts): Promise<string> {
+      return new Promise((resolve, reject) => {
+        // @ts-expect-error: OW types
+        overwolf.io.readBinaryFile(fullPath, {}, (rb: any) => {
+          if (!rb || rb.success === false || !rb.content) {
+            console.error('[readFile] Failed to read binary:', rb);
+            reject(rb);
+            return;
+          }
+
+          const bytes = new Uint8Array(rb.content as number[]);
+          const blob = new Blob([bytes], { type: mime });
+
+          if (as === 'data-url') {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const out = reader.result as string; // data:<mime>;base64,...
+              console.log('[readFile] data-url len:', out?.length);
+              resolve(out);
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(blob);
+            return;
+          }
+
+          const url = URL.createObjectURL(blob); // blob:overwolf-extension://...
+          console.log('[readFile] blob-url:', url);
+          resolve(url.toString());
+        });
+      });
+    }
     const entries: MapFileEntry[] = [];
 
-    const add = (dirPath: string, file: overwolf.io.FileInDir, realmGuess: string) => {
+    const add = async (dirPath: string, file: overwolf.io.FileInDir, realmGuess: string) => {
       const name = file.name || "";
       const ext = name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
       if (!ext || !ALLOWED_FILE_EXTENSIONS.includes(ext)) return;
+
+      const fullPath = await readFile({ fullPath: dirPath + '\\' + name, as: 'data-url' });
+      console.log(fullPath);
 
       entries.push({
         source: this.id,
         realm: realmGuess || "Custom",
         fileName: name,
-        fullPath: dirPath + '\\' + name,
+        fullPath
       });
     };
 
     // Files directly under base
-    firstLevel.filter(f => f.type === 'file').forEach(f => add(basePath, f, "Custom"));
+    await Promise.all(firstLevel.filter(f => f.type === 'file').map(f => add(basePath, f, "Custom").then(res => console.log({ res }))));
 
     // Subfolders -> folder name as realm hint
     const dirs = firstLevel.filter(f => f.type === 'dir');
@@ -136,7 +172,7 @@ class CustomProvider implements IMapFileProvider {
         overwolf.io.dir(dirPath, _res => res(_res.data || []))
       );
 
-      contents.filter(f => f.type === 'file').forEach(f => add(dirPath, f, d.name || "Custom"));
+      await Promise.all(contents.filter(f => f.type === 'file').map(f => add(dirPath, f, d.name || "Custom").then(console.log)));
     }
 
     this.cache = entries;
@@ -150,6 +186,36 @@ export class MapResolver {
   private static providers: IMapFileProvider[] = [new CustomProvider(), new VanillaProvider()];
   private static providerPriority: string[] = ["custom", "vanilla"]; // first is highest priority
 
+  // ---- NEW: Cached entries + explicit reload API ----
+  private static get _cachedEntries(): MapFileEntry[] {
+    const cache = overwolf.windows.getMainWindow().cache;
+    if (!cache.mapResolver) cache.mapResolver = [];
+    return cache.mapResolver;
+  };
+
+  private static set _cachedEntries(entries: MapFileEntry[]) {
+    const cache = overwolf.windows.getMainWindow().cache;
+    cache.mapResolver = entries;
+  }
+
+  static getCachedEntries() {
+    return this._cachedEntries;
+  }
+
+  /**
+   * Reloads and caches ALL map entries from all providers.
+   * Call this to refresh; otherwise cached data is used.
+   */
+  static async reloadCache() {
+    const lists = await Promise.all(this.providers.map(p => p.list().catch(() => [])));
+    this._cachedEntries = lists.flat();
+  }
+
+  /** Preload providers & fill cache (optional). */
+  static async init() {
+    await this.reloadCache();
+  }
+
   /** Register additional providers (e.g., mod managers) */
   static registerProvider(provider: IMapFileProvider, priorityHigherThan?: string) {
     if (priorityHigherThan) {
@@ -160,11 +226,6 @@ export class MapResolver {
       MapResolver.providerPriority.push(provider.id);
     }
     MapResolver.providers.unshift(provider); // put new provider at the front so it’s queried early
-  }
-
-  /** Preload providers that need indexing (optional). */
-  static async init() {
-    await Promise.all(this.providers.map(p => p.list().catch(() => [])));
   }
 
   // ---------- Normalization helpers (single source of truth) ----------
@@ -191,29 +252,30 @@ export class MapResolver {
 
   /** Normalization used for fuzzy matching via Levenshtein. */
   static normalizeForMatch(word: string): string {
-    return MapResolver.baseName(
-      word
-        .trim()
-        .replace(/[L|]/g, 'I')       // treat L and | like I
-        .replace(/["'`´^]/g, '')     // remove extra chars
-    ).toUpperCase();
+    return word
+      .trim()
+      .toUpperCase()
+      .replace(/[L|]/g, 'I')              // treat L and | like I (AFTER uppercasing)
+      .replace(/["'`´^]/g, '')            // remove extra chars
+      .replace(/\.[A-Z0-9]+$/, '')        // remove file extension
+      .replace(/\s*_+\s*\d+\s*_+\s*$/, '')// strip trailing _n_ (whitespace tolerant)
+      .replace(/\s+/g, ' ');              // collapse whitespace
   }
 
-  // ---------- Aggregation & Resolution ----------
+  // ---------- Aggregation & Resolution (now using cache, sync) ----------
 
-  /** Fetch all entries from all providers. */
-  private static async allEntries(): Promise<MapFileEntry[]> {
-    const lists = await Promise.all(this.providers.map(p => p.list()));
-    return lists.flat();
+  /** Fetch all entries from cache (no I/O). */
+  private static allEntriesFromCache(): MapFileEntry[] {
+    return this._cachedEntries || [];
   }
 
   /**
    * Collect ALL files (custom + vanilla + future providers) that share the same base name.
    * Matching is realm-agnostic; realms are preserved only for browsing/path building.
    */
-  private static async collectAllForBase(base: string): Promise<MapFileEntry[]> {
+  private static collectAllForBase(base: string): MapFileEntry[] {
     const target = MapResolver.normalizeForMatch(base);
-    const entries = await this.allEntries();
+    const entries = this.allEntriesFromCache();
     return entries.filter(e => MapResolver.normalizeForMatch(e.fileName) === target);
   }
 
@@ -235,22 +297,16 @@ export class MapResolver {
   }
 
   /**
-   * Build a GameStateMap for a given seed (realm/file from detection).
-   * Realm is ignored for matching; we group by base name across ALL providers.
+   * Build a GameStateMap for a given seed (realm/file from detection) synchronously
+   * using cached entries. Realm is ignored for matching; we group by base name across ALL providers.
    */
-  public static async makeMap(seed: { realm: string; mapFile: string }): Promise<GameStateMap | null> {
+  public static makeMap(seed: { realm: string; mapFile: string }): GameStateMap | null {
     const base = MapResolver.baseName(seed.mapFile); // tolerant to spaces/extension
-    const candidates = await MapResolver.collectAllForBase(base);
+    const candidates = MapResolver.collectAllForBase(base);
 
     if (candidates.length === 0) {
-      // Fallback: return the seed as vanilla-like entry
-      return {
-        credit: 'hens333.com',
-        name: base,
-        realm: seed.realm,
-        mapFile: seed.mapFile,
-        fullPath: `../../img/maps/${seed.realm}/${seed.mapFile}`,
-      };
+      // Fallback
+      return null
     }
 
     // Determine main by provider priority then variation number
@@ -259,7 +315,7 @@ export class MapResolver {
     const rest = sorted.slice(1);
 
     const toGSM = (e: MapFileEntry): GameStateMap => ({
-      credit: 'hens333.com',
+      credit: e.source !== 'custom' ? 'hens333.com' : undefined,
       name: base,
       realm: e.realm,
       mapFile: e.fileName,
@@ -276,6 +332,106 @@ export class MapResolver {
     }
     return mainGsm;
   }
+
+  private static byProviderPriority(a: MapFileEntry, b: MapFileEntry): number {
+    const idx = (id: string) => {
+      const i = this.providerPriority.indexOf(id);
+      return i >= 0 ? i : Number.MAX_SAFE_INTEGER;
+    };
+    return idx(a.source) - idx(b.source);
+  }
+
+  private static byVariation(a: MapFileEntry, b: MapFileEntry): number {
+    const av = this.variationNumber(a.fileName);
+    const bv = this.variationNumber(b.fileName);
+    if (av === 0 && bv !== 0) return -1;
+    if (bv === 0 && av !== 0) return 1;
+    return av - bv;
+  }
+
+  private static sortPreferred(a: MapFileEntry, b: MapFileEntry): number {
+    const p = this.byProviderPriority(a, b);
+    return p !== 0 ? p : this.byVariation(a, b);
+  }
+
+  public static listGroups(): MapGroup[] {
+    const all = this.allEntriesFromCache();
+
+    // 1) Group by normalized base name (realm-agnostic).
+    const byBase = new Map<string, MapFileEntry[]>();
+    // Track which realms contain entries for each base (for visual duplication later).
+    const realmsByBase = new Map<string, Set<string>>();
+
+    for (const e of all) {
+      const baseKey = this.normalizeForMatch(e.fileName); // realm-agnostic key
+      const list = byBase.get(baseKey);
+      if (list) list.push(e); else byBase.set(baseKey, [e]);
+
+      const rs = realmsByBase.get(baseKey);
+      if (rs) rs.add(e.realm); else realmsByBase.set(baseKey, new Set([e.realm]));
+    }
+
+    const groups: MapGroup[] = [];
+
+    // 2) Build the canonical (main + variants) once per base, then duplicate per realm.
+    for (const [baseKey, entries] of byBase) {
+      // Choose main by provider priority, then prefer no suffix (0), then lowest number.
+      const preferred = [...entries].sort((a, b) => this.sortPreferred(a, b));
+      const main = preferred[0];
+      const rest = preferred.slice(1).sort((a, b) => this.byVariation(a, b));
+
+      // Canonical base name (nicely formatted).
+      const baseName = this.baseName(main.fileName);
+
+      // Realms that should visually display this same group.
+      const realms = Array.from(realmsByBase.get(baseKey) || []);
+
+      // For each realm that contains this base, create a group entry that points to the SAME files.
+      for (const realm of realms) {
+        groups.push({
+          baseName,
+          realm,
+          main,
+          variants: rest, // same canonical variants everywhere (count reflects total across sources/realms)
+        });
+      }
+    }
+
+    // 3) Sort: Custom realm first, then base name A→Z, then realm A→Z for stability.
+    return groups.sort((a, b) => {
+      const aIsCustom = a.realm.toLowerCase() === "custom";
+      const bIsCustom = b.realm.toLowerCase() === "custom";
+      if (aIsCustom !== bIsCustom) return aIsCustom ? -1 : 1;
+
+      const byName = a.baseName.localeCompare(b.baseName);
+      if (byName !== 0) return byName;
+
+      return a.realm.localeCompare(b.realm);
+    });
+  }
+
+  /** 2b) realm -> base name -> variant count (excluding main) */
+  public static countsByRealm(): Record<string, Record<string, number>> {
+    const groups = this.listGroups();
+    const out: Record<string, Record<string, number>> = {};
+    for (const g of groups) {
+      if (!out[g.realm]) out[g.realm] = {};
+      out[g.realm][g.baseName] = g.variants.length;
+    }
+    return out;
+  }
+
+  /** 3) Rehydrate by name (realm-agnostic): return GameStateMap with variants */
+  public static makeMapByName(baseName: string): GameStateMap | null {
+    const all = this.allEntriesFromCache();
+    const key = this.normalizeForMatch(baseName);
+    const candidates = all.filter(e => this.normalizeForMatch(e.fileName) === key);
+    if (candidates.length === 0) return null;
+
+    const seed = [...candidates].sort((a, b) => this.sortPreferred(a, b))[0];
+    return this.makeMap({ realm: seed.realm, mapFile: seed.fileName });
+  }
+
 }
 
 // ===== GameStateGuesser (mostly unchanged; now delegates to MapResolver) =====
@@ -285,32 +441,9 @@ export class GameStateGuesser {
   public readonly bus = createBus<{ gameState: GameState }>();
 
   constructor() {
-    let inFocus = true, lastExternalActivity = Date.now();
-    let polling = false;
-    setInterval(async () => {
-      if (polling) return;
-      polling = true;
-      try {
-        const { isInFocus } = await new Promise<RunningGameInfo>((res, rej) => {
-          overwolf.games.getRunningGameInfo(res);
-          setTimeout(rej, 900);
-        });
-        if (!inFocus && isInFocus) lastExternalActivity = Date.now();
-        inFocus = isInFocus;
-
-        if (!isInFocus) return;
-
-        const lastUpdate = Math.max(lastExternalActivity, this.lastStateUpdate);
-        if ((Date.now() - lastUpdate) > 10000 && this._state.type !== GameStateType.MATCH) this.push({ type: GameStateType.MATCH });
-      } finally {
-        polling = false;
-      }
-    }, 1000);
-
     MapResolver.init().catch(() => { });
   }
 
-  private lastStateUpdate = Date.now();
   private _state: GameState = { type: GameStateType.MENU };
 
   public get state() {
@@ -329,17 +462,35 @@ export class GameStateGuesser {
     if (prev.type !== GameStateType.MATCH) next.map = prev.map;
 
     this._state = next;
-    this.lastStateUpdate = Date.now();
     this.publishGameStateChange(prev, next);
   }
 
-  guessSettings(type: 'left' | 'right', res: OCRSingleResult) {
+  escapeRe(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  guessSettings(type: 'left' | 'right', res: { text: string[] }) {
+    const leftKeywords = ["back", "esc", "apply changes"];
+
     const result = type === 'left'
-      ? res.text.filter(text => ["back", "esc", "apply changes"].some(keyword => keyword.includes(text.toLowerCase()))).length >= 1
-      : res.text.filter(text => ["general", "accessibility", "beta", "online", "graphics", "audio", "controls", "input binding", "support", "match details", "general"].includes(text.toLowerCase())).length >= 6;
+      ? res.text
+        .map(t => t.toLowerCase().trim())
+        // drop obvious OCR noise like single chars or punctuation
+        .filter(t => t.length >= 3 && /[a-z]/.test(t))
+        .some(t => leftKeywords.some(k => new RegExp(`\\b${this.escapeRe(k)}\\b`).test(t)))
+      : res.text
+        .map(t => t.toLowerCase().trim())
+        .filter(Boolean)
+        .filter(t => [
+          "general", "accessibility", "beta", "online", "graphics",
+          "audio", "controls", "input binding", "support", "match details"
+        ].includes(t))
+        .length >= 6;
+
     if (result) this.push(this._state);
     return result;
   }
+
 
   guessLoadingScreen(blackRes?: PureBlackResult, textRes?: OCRSingleResult) {
     let result = false;
@@ -365,6 +516,7 @@ export class GameStateGuesser {
 
   private _lastGuessedMap: { time: number, mapFile: string, match: number } | undefined;
 
+  // ---- CHANGED: now synchronous (uses cached entries via MapResolver)
   guessMap(guessedName: string): GameStateMap | null {
     if (!CALLOUT_SETTINGS.getValue().autoDetect) return null;
 
@@ -379,22 +531,27 @@ export class GameStateGuesser {
       )
       .sort((a, b) => b.match - a.match);
 
+    console.log({ guessedName, matches });
+
     const [highestMatch] = matches;
-    if (!highestMatch || highestMatch.match < .92) return null;
+    if (!highestMatch || highestMatch.match < .85) return null;
+
+    console.log({ highestMatch });
 
     if (this._lastGuessedMap && (Date.now() - this._lastGuessedMap.time) > 3000 && highestMatch.match < this._lastGuessedMap.match) return null;
     this._lastGuessedMap = { time: Date.now(), ...highestMatch };
 
     // Now build the final map using ALL providers (realm-agnostic matching, custom-priority, full variants)
-    MapResolver.makeMap({ realm: highestMatch.realm, mapFile: highestMatch.mapFile })
-      .then(result => {
-        if (result) this.push({ type: GameStateType.MATCH, map: result });
-      })
-      .catch(() => { /* ignore */ });
+    const result = MapResolver.makeMap({
+      realm: highestMatch.realm,
+      mapFile: highestMatch.mapFile,
+    });
 
-    // We return null synchronously because push happens when async completes.
-    // If you prefer sync behavior, await the call above and return the result directly.
-    return null;
+    if (result) {
+      this.push({ type: GameStateType.MATCH, map: result });
+    }
+
+    return result;
   }
 
   // Leverage shared normalization

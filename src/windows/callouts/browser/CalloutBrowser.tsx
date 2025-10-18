@@ -1,19 +1,18 @@
 import useIsFocusVisible from '@mui/utils/useIsFocusVisible';
-import { GameStateGuesser, GameStateMap, MapResolver } from "../../../game_state/GameState";
+import { GameStateMap, MapResolver } from "../../../game_state/GameState";
 import { Accordion } from "../../../utils/mui/Accordion";
 import { useMapDir } from "./use-callout-map-dir";
 import { useMapBrowserNavigation } from "./use-map-browser-navigation";
 
 
-import { ArrowBack, ArrowDownward, ArrowForward, ArrowForwardIos, ArrowUpward, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight, KeyboardArrowUp } from '@mui/icons-material';
+import { ArrowForward } from '@mui/icons-material';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Button from '@mui/material/Button';
 import { ButtonBaseActions } from '@mui/material/ButtonBase/ButtonBase';
 import Stack from '@mui/material/Stack';
 import { CALLOUT_SETTINGS } from '../callout-settings';
-import Paper from '@mui/material/Paper';
-import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 
 
 const normalizeFileName = (fileName: string) => fileName.replace(/_/g, '').replace(/\.[a-z]+$/gi, '');
@@ -22,11 +21,11 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
   const { realms } = useMapDir();
 
   const isEqualMap = (map1: { mapFile: string, realm: string }, map2: { mapFile: string; realm: string }) => {
-    return map1?.mapFile === map2?.mapFile && map1?.realm === map2?.realm;
+    return MapResolver.baseName(map1?.mapFile || '') === MapResolver.baseName(map2?.mapFile || '');
   };
 
-  const selectMap = async (map: { realm: string, mapFile: string }) => {
-    props.onSelect(isEqualMap(map, props.current) ? null : await MapResolver.makeMap({ ...map }));
+  const selectMap = (map: { realm: string, mapFile: string }) => {
+    props.onSelect(isEqualMap(map, props.current) ? null : MapResolver.makeMap({ ...map }));
     CALLOUT_SETTINGS.update({ browser: false });
   };
 
@@ -40,11 +39,14 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
     ref: focusVisibleRef,
   } = useIsFocusVisible();
 
+  console.log(realms);
+
   return (
     <Stack flexGrow={1} overflow={'auto'}>
-      {realms.map(({ realm, mapFiles }, i) => {
+      {Object.keys(realms).map((realm, i) => {
         const selected = selectedRealmIndex === i;
         const open = selected && realmOpen;
+        const maps = Object.keys(realms[realm]);
 
         // Summary: programmatic focus + center on selection
         const setSummaryRef = selected
@@ -65,12 +67,12 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
               slotProps={{ root: { ref: setSummaryRef, onFocus: onFVFocus, onBlur: onFVBlur } }}
               className={selected ? 'Mui-focusVisible' : undefined}
             >
-              {realm}
+              <span>{realm}</span>
             </AccordionSummary>
 
             <AccordionDetails>
               <Stack spacing={1}>
-                {mapFiles.map((mapFile, j) => {
+                {maps.map((map, j) => {
                   const selectedBtn = open && selectedMapIndex === j;
 
                   const setBtnAction = selectedBtn
@@ -93,24 +95,25 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
                     }
                     : undefined;
 
-                  const onOpen = () => selectMap({ realm, mapFile });
+                  const onOpen = () => selectMap({ realm, mapFile: map });
                   if (selectedBtn) useMapBrowserNavigation.getState().ref.onOpenCallback = onOpen;
 
                   return (
                     <Button
                       endIcon={selectedBtn ? <Key><ArrowForward /></Key> : undefined}
-                      name={mapFile}
+                      name={map}
                       ref={setBtnRef}
                       action={setBtnAction}
                       fullWidth
                       variant="outlined"
                       size="small"
                       onClick={onOpen}
-                      color={isEqualMap({ realm, mapFile }, props.current) ? 'error' : 'info'}
+                      color={isEqualMap({ realm, mapFile: map }, props.current) ? 'error' : 'info'}
                       focusRipple={false}
                       disableRipple
                       data-selected={selectedBtn ? 'true' : undefined}
                       sx={{
+                        textAlign: 'left !important',
                         '&[data-selected="true"]': {
                           outline: (t) => `2px solid ${t.palette.primary.main}`,
                           outlineOffset: 2,
@@ -123,7 +126,10 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
                       }}
                       tabIndex={selectedBtn ? 0 : -1}
                     >
-                      {normalizeFileName(mapFile)}
+                      <Stack spacing={1} width={'100%'} direction={'row'} justifyContent={'center'}>
+                        <Chip size='small' label={realms[realm][map] + 1} />
+                        <span style={{ flexGrow: 1 }}>{normalizeFileName(map)}</span>
+                      </Stack>
                     </Button>
                   );
                 })}

@@ -27,11 +27,15 @@ type AppEvents = {
 declare global {
   interface Window {
     bus: TypedBus<AppEvents>;
+    cache: { [key: string]: any };
   }
 }
 
 // Shared bus for cross-window communication.
 window.bus = createBus();
+
+// Shared cache for various things.
+window.cache = {};
 
 /* ============================================================================
  * Constants & helpers
@@ -43,9 +47,9 @@ window.bus = createBus();
  */
 const OCR_AREAS = [
   { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.5, h: 0.3 }, psm: PSM.SPARSE_TEXT },
-  { id: 'main-menu', type: 'ocr' as const, rect: { x: 0.05, y: 0.05, w: 0.3, h: 0.4 }, psm: PSM.SPARSE_TEXT_OSD },
+  { id: 'main-menu', type: 'ocr' as const, rect: { x: 0.05, y: 0.05, w: 0.3, h: 0.4 }, psm: PSM.SPARSE_TEXT },
   { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.8, y: 0.85, w: 0.2, h: 0.15 }, psm: PSM.SPARSE_TEXT },
-  { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.7, y: 0, w: 0.3, h: 0.15 }, psm: PSM.SPARSE_TEXT_OSD },
+  { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.7, y: 0, w: 0.3, h: 0.15 }, psm: PSM.SPARSE_TEXT },
   {
     id: 'loading-screen',
     type: 'pure-black' as const,
@@ -62,13 +66,6 @@ const OCR_AREAS = [
   { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.25, y: 0.3, w: 0.5, h: 0.4 }, psm: PSM.SPARSE_TEXT },
   { id: 'settings', type: 'ocr' as const, rect: { x: 0, y: 0, w: 1, h: 0.2 }, psm: PSM.SPARSE_TEXT },
 ] as const;
-
-/** Guard to check an OCR result exists and is of a specific kind. */
-const isType = <K extends keyof OcrAreasResult>(
-  res: OcrAreasResult,
-  key: K,
-  type: OcrAreasResult[K]['type']
-) => res[key] && res[key]!.type === type;
 
 /** Convenience debug wrapper that mirrors original return shape & logs. */
 const makeReturn = (key: string, res: OcrAreasResult) => {
@@ -141,6 +138,7 @@ class BackgroundController {
     });
 
     this._gameListener.start();
+    MapResolver.init();
   }
 
   /** Singleton accessor. */
@@ -228,14 +226,14 @@ class BackgroundController {
 
       try {
         const res = await performOcrAreas(OCR_AREAS as any);
-        this.evaluateRes(res);
+        await this.evaluateRes(res);
       } catch (e) {
         // Shut
       } finally {
         last = Date.now();
         lock = false;
       }
-    }, 100);
+    }, 50);
   }
 
   /* ------------------------------------------------------------------------
@@ -249,14 +247,16 @@ class BackgroundController {
    *
    * Returns the same debug object (or null) as before and logs to console.
    */
-  private evaluateRes(res: OcrAreasResult) {
+  private async evaluateRes(res: OcrAreasResult) {
     // Alias preserved
     (res as any)['settings-back-btn'] = res['map'];
+
+    console.log(res['map']);
 
     // 1) Map
     if (res['map']?.type === 'ocr') {
       const mapRes = res['map'] as Extract<NonNullable<typeof res['map']>, { type: 'ocr' }>;
-      if (mapRes.text.some(guess => this.guesser.guessMap(guess))) {
+      if ((await Promise.all(mapRes.text.map(async guess => await this.guesser.guessMap(guess)))).some(Boolean)) {
         return makeReturn('map', res);
       }
     }
