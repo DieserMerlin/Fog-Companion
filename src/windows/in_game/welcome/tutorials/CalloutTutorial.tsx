@@ -1,13 +1,16 @@
-import Stack from "@mui/material/Stack";
-import { Tutorial, useTutorial } from "../AppTutorial";
-import { IngameAppTab, useIngameApp } from "../../use-ingame-app";
-import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
-import Link from "@mui/material/Link";
 import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
 import { SettingsHotkey } from "../../settings/AppSettingsHotkey";
+import { EnableCalloutFeature } from "../../settings/EnableDisableFeatures";
+import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
+import { IngameAppTab, useIngameApp } from "../../use-ingame-app";
+import { CloseTutorialConfirmation, Tutorial, useTutorial } from "../AppTutorial";
+import Link from "@mui/material/Link";
 
-const openCalloutSettings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); useTutorial.getState().clear(); };
-const SettingsLink = () => <Link onClick={openCalloutSettings}>Settings</Link>;
+const openCalloutSettings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
+const openAbout = () => { useIngameApp.setState({ tab: IngameAppTab.ABOUT }); };
+const SettingsLink = () => <CloseTutorialConfirmation onClose={openCalloutSettings}>Settings</CloseTutorialConfirmation>;
+const AboutLink = () => <CloseTutorialConfirmation onClose={openAbout}>About-Tab</CloseTutorialConfirmation>;
 
 export const CALLOUT_TUTORIAL: Tutorial = {
   title: 'Callout Overlay',
@@ -21,7 +24,7 @@ export const CALLOUT_TUTORIAL: Tutorial = {
       <span>Move the map to another position on the <b>Overwolf Overlay</b>.</span>
     </>
   ),
-  notice: <>You can turn also turn the map off using (<SettingsHotkey name="map_showhide" />).</>,
+  notice: <>Turn this feature on/off: <EnableCalloutFeature /></>,
   media: { type: 'video', src: './videos/1.mp4', position: 'right' },
   steps: [
     {
@@ -72,6 +75,18 @@ export const CALLOUT_TUTORIAL: Tutorial = {
         </>
       ),
       media: { type: 'video', src: './videos/2.mp4', position: 'left' }
+    },
+    {
+      title: 'Want custom graphics?',
+      content: (
+        <>
+          <Stack>
+            <span>The default overlay graphics are those from <Link onClick={() => window.open('https://hens333.com', '_blank')}>Hens</Link>!</span>
+            <span>See how to use your own graphics in the <SettingsLink />.</span>
+          </Stack>
+        </>
+      ),
+      notice: <>Also if you have contact to Hens, please see the <AboutLink />.</>
     }
   ]
 }

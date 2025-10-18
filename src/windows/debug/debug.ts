@@ -2,7 +2,7 @@
 import { PSM } from "tesseract.js";
 import { AppWindow } from "../../AppWindow";
 import { kWindowNames } from "../../consts";
-import { CANVAS, OcrAreasResult, performOcrAreas } from "../../utils/ocr/area-ocr";
+import { OcrAreasResult, performOcrAreas } from "../../utils/ocr/area-ocr";
 import { GameStateGuesser as GameStateGuesser } from "../../game_state/GameState";
 
 class Callouts extends AppWindow {
@@ -12,20 +12,22 @@ class Callouts extends AppWindow {
   private constructor() {
     super(kWindowNames.callouts);
 
-    if (1) return;
+    const container = document.getElementById('canvas');
+    const canvas = document.createElement('canvas');
+
+    container.append(canvas);
 
     setInterval(async () =>
       performOcrAreas([
-        { id: 'map', type: 'ocr', rect: { x: 0, y: .7, w: .5, h: .3 }, psm: PSM.SPARSE_TEXT },
-        { id: 'main-menu', type: 'ocr', rect: { x: .05, y: .05, w: .3, h: .4 }, psm: PSM.SPARSE_TEXT_OSD },
+        { id: 'map', type: 'ocr', canvas, rect: { x: 0, y: .7, w: .5, h: .3 }, psm: PSM.SPARSE_TEXT },
+        /*{ id: 'main-menu', type: 'ocr', rect: { x: .05, y: .05, w: .3, h: .4 }, psm: PSM.SPARSE_TEXT_OSD },
         { id: 'menu-btn', type: 'ocr', rect: { x: .8, y: .85, w: .2, h: .15 }, psm: PSM.SPARSE_TEXT },
         { id: 'bloodpoints', type: 'ocr', rect: { x: .7, y: 0, w: .3, h: .15 }, psm: PSM.SPARSE_TEXT_OSD },
         { id: 'loading-screen', type: 'pure-black', rects: [{ x: 0, y: 0, w: 1, h: .02 }, { x: 0, y: .98, w: 1, h: .02 }, { x: 0, y: .02, w: .02, h: .96 }, { x: .98, y: .02, w: .02, h: .96 }], blackMax: 10, colorDeltaMax: 3, minMatchRatio: .97 },
         { id: 'loading-text', type: 'ocr', rect: { x: .25, y: .3, w: .5, h: .4 }, psm: PSM.SPARSE_TEXT },
-        { id: 'settings', type: 'ocr', rect: { x: 0, y: 0, w: 1, h: .2 }, psm: PSM.SPARSE_TEXT },
+        { id: 'settings', type: 'ocr', rect: { x: 0, y: 0, w: 1, h: .2 }, psm: PSM.SPARSE_TEXT },*/
       ])
-        .then(res => document.getElementById('output').innerText = JSON.stringify({ res: this.evaluateRes(res), state: this.guesser.state, time: Date.now() }, null, 2)), 2000);
-    // document.body.append(CANVAS);
+        .then(res => document.getElementById('output').innerText = JSON.stringify({ res})), 800);
   }
 
   private guesser = new GameStateGuesser();

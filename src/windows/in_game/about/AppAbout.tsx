@@ -8,6 +8,9 @@ import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import { useEffect, useState } from "react";
 import Dialog from "@mui/material/Dialog";
+import { useTutorial } from "../welcome/AppTutorial";
+import { WELCOME_TUTORIALS } from "../welcome/tutorials/WelcomeTutorial";
+import Link from "@mui/material/Link";
 
 export const AppAbout = () => {
   const [noticeText, setNoticeText] = useState('');
@@ -35,6 +38,7 @@ export const AppAbout = () => {
                 <Stack flexGrow={1}>
                   <Typography variant="h5">DBD COMPanion <Chip label={'v' + pkg.version} /></Typography>
                   <Typography variant="caption">by Merlin</Typography>
+                  <small style={{ marginTop: 10, opacity: .6 }}>Default Callout graphics by <Link onClick={() => window.open('https://hens333.com', '_blank')}>Hens</Link>.</small>
                 </Stack>
                 <Stack alignItems={'end'} spacing={1}>
                   <small style={{ opacity: .8 }}>Like my work?</small>
@@ -44,7 +48,7 @@ export const AppAbout = () => {
             </CardContent>
           </Card>
           <Stack direction={'row'} spacing={1}>
-            <Alert severity="info" variant="outlined" sx={{ width: '100%' }}>
+            <Alert severity="info" variant="outlined" sx={{ width: '100%' }} slotProps={{ message: { style: { width: '100%' } } }}>
               <Stack width={'100%'} height={'100%'} spacing={1}>
                 <Typography variant="overline">
                   Who is this app for?
@@ -55,15 +59,18 @@ export const AppAbout = () => {
                 </Stack>
               </Stack>
             </Alert>
-            <Alert severity="warning" variant="outlined" sx={{ width: '100%' }}>
-              <Stack width={'100%'} height={'100%'} spacing={1}>
-                <Typography variant="overline">
-                  You need help or have a feature proposal?
-                </Typography>
-                <Stack height={'100%'} justifyContent={'center'}>
-                  <span>Don't hesitate to contact me on Discord!</span>
-                  <span>My username is <b>@DieserMerlin</b>.</span>
+            <Alert severity="warning" variant="outlined" sx={{ width: '100%', display: 'flex' }} slotProps={{ message: { style: { width: '100%' } } }}>
+              <Stack width={'100%'} height={'100%'} direction={'row'} spacing={1} flexGrow={1}>
+                <Stack width={'100%'} height={'100%'} spacing={1} flexGrow={1}>
+                  <Typography variant="overline">
+                    You need help or have a feature proposal?
+                  </Typography>
+                  <Stack height={'100%'} justifyContent={'center'}>
+                    <span>Don't hesitate to contact me on Discord!</span>
+                    <span>My username is <b>@DieserMerlin</b>.</span>
+                  </Stack>
                 </Stack>
+                <Button variant="outlined" style={{ height: '100%' }} onClick={() => useTutorial.getState().setTutorials(WELCOME_TUTORIALS)}>Restart Tutorial</Button>
               </Stack>
             </Alert>
           </Stack>

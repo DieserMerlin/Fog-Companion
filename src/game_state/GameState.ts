@@ -18,6 +18,7 @@ export type GameStateMap = {
   realm: string;         // realm is only for browsing/paths; not used for matching
   mapFile: string;       // actual file name with extension
   fullPath: string;      // either disk path (custom) or relative path (vanilla)
+  imageUrl: string;            // Image url for usage in css
   credit: string;
   variants?: GameStateMap[];
 }
@@ -32,11 +33,12 @@ const isEqual = (a: any, b: any) => a === b;
 
 // ===== File Provider Interface & Implementations =====
 
-type MapFileEntry = {
+export type MapFileEntry = {
   source: string;              // e.g. 'custom' | 'vanilla' | 'modX'
   realm: string;               // “browsing realm” (can be "Custom" or MapDirectory realm)
   fileName: string;            // file name WITH extension
   fullPath: string;            // absolute (custom) or relative (vanilla) path
+  imageUrl: string;            // Image url for usage in css
 };
 
 export type MapGroup = {
@@ -50,6 +52,7 @@ export interface IMapFileProvider {
   id: string;
   /** Returns all map file entries available from this provider. */
   list(): Promise<MapFileEntry[]>;
+  clearCache?: () => void;
 }
 
 /** Reads maps from MapDirectory (vanilla assets). */
@@ -66,6 +69,7 @@ class VanillaProvider implements IMapFileProvider {
           realm,
           fileName: file,
           fullPath: `../../img/maps/${realm}/${file}`,
+          imageUrl: `../../img/maps/${realm}/${file}`
         });
       }
     }
@@ -74,13 +78,20 @@ class VanillaProvider implements IMapFileProvider {
 }
 
 /** Indexes custom maps on disk (cached). */
-class CustomProvider implements IMapFileProvider {
+export class CustomProvider implements IMapFileProvider {
   id = "custom";
   private cache: MapFileEntry[] | null = null;
 
-  async list(): Promise<MapFileEntry[]> {
-    if (this.cache) return this.cache;
+  clearCache() { this.cache = null };
 
+  // static instance
+  static Instance(): CustomProvider {
+    const cache = overwolf.windows.getMainWindow().cache;
+    if (!cache.customProvider) cache.customProvider = new CustomProvider();
+    return cache.customProvider;
+  }
+
+  async folderExists() {
     const basePath = await new Promise<string>(res =>
       overwolf.settings.getOverwolfScreenshotsFolder(_res =>
         res(_res.path.Value + '\\DBD COMPanion\\CustomMaps')
@@ -90,6 +101,14 @@ class CustomProvider implements IMapFileProvider {
     const exists = await new Promise<boolean>(res =>
       overwolf.io.exist(basePath, _res => res(_res.exist))
     );
+
+    return { basePath, exists };
+  }
+
+  async list(): Promise<MapFileEntry[]> {
+    if (this.cache) return this.cache;
+
+    const { exists, basePath } = await this.folderExists();
 
     if (!exists) {
       console.log('Custom maps base path does not exist', basePath);
@@ -145,14 +164,16 @@ class CustomProvider implements IMapFileProvider {
       const ext = name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
       if (!ext || !ALLOWED_FILE_EXTENSIONS.includes(ext)) return;
 
-      const fullPath = await readFile({ fullPath: dirPath + '\\' + name, as: 'data-url' });
-      console.log(fullPath);
+      const fullPath = dirPath + '\\' + name;
+      const imageUrl = await readFile({ fullPath, as: 'data-url' });
+      console.log(imageUrl);
 
       entries.push({
         source: this.id,
         realm: realmGuess || "Custom",
         fileName: name,
-        fullPath
+        fullPath,
+        imageUrl
       });
     };
 
@@ -183,22 +204,12 @@ class CustomProvider implements IMapFileProvider {
 // ===== MapResolver =====
 
 export class MapResolver {
-  private static providers: IMapFileProvider[] = [new CustomProvider(), new VanillaProvider()];
-  private static providerPriority: string[] = ["custom", "vanilla"]; // first is highest priority
+  private providers: IMapFileProvider[] = [CustomProvider.Instance(), new VanillaProvider()];
+  private providerPriority: string[] = ["custom", "vanilla"]; // first is highest priority
 
-  // ---- NEW: Cached entries + explicit reload API ----
-  private static get _cachedEntries(): MapFileEntry[] {
-    const cache = overwolf.windows.getMainWindow().cache;
-    if (!cache.mapResolver) cache.mapResolver = [];
-    return cache.mapResolver;
-  };
+  private _cachedEntries: MapFileEntry[] = [];
 
-  private static set _cachedEntries(entries: MapFileEntry[]) {
-    const cache = overwolf.windows.getMainWindow().cache;
-    cache.mapResolver = entries;
-  }
-
-  static getCachedEntries() {
+  getCachedEntries() {
     return this._cachedEntries;
   }
 
@@ -206,52 +217,60 @@ export class MapResolver {
    * Reloads and caches ALL map entries from all providers.
    * Call this to refresh; otherwise cached data is used.
    */
-  static async reloadCache() {
-    const lists = await Promise.all(this.providers.map(p => p.list().catch(() => [])));
+  async reloadCache() {
+    const lists = await Promise.all(this.providers.map(p => { p.clearCache?.(); return p.list().catch(() => []) }));
+    console.log({ lists });
     this._cachedEntries = lists.flat();
   }
 
   /** Preload providers & fill cache (optional). */
-  static async init() {
+  async init() {
     await this.reloadCache();
   }
 
+  // static instance
+  static Instance(): MapResolver {
+    const cache = overwolf.windows.getMainWindow().cache;
+    if (!cache.mapResolver) cache.mapResolver = new MapResolver();
+    return cache.mapResolver;
+  }
+
   /** Register additional providers (e.g., mod managers) */
-  static registerProvider(provider: IMapFileProvider, priorityHigherThan?: string) {
+  registerProvider(provider: IMapFileProvider, priorityHigherThan?: string) {
     if (priorityHigherThan) {
-      const idx = MapResolver.providerPriority.indexOf(priorityHigherThan);
-      const pidx = idx >= 0 ? idx : MapResolver.providerPriority.length;
-      MapResolver.providerPriority.splice(pidx, 0, provider.id);
+      const idx = this.providerPriority.indexOf(priorityHigherThan);
+      const pidx = idx >= 0 ? idx : this.providerPriority.length;
+      this.providerPriority.splice(pidx, 0, provider.id);
     } else {
-      MapResolver.providerPriority.push(provider.id);
+      this.providerPriority.push(provider.id);
     }
-    MapResolver.providers.unshift(provider); // put new provider at the front so it’s queried early
+    this.providers.unshift(provider); // put new provider at the front so it’s queried early
   }
 
   // ---------- Normalization helpers (single source of truth) ----------
 
   /** Collapse whitespace to single spaces and trim. */
-  static normalizeWhitespace(s: string): string {
+  normalizeWhitespace(s: string): string {
     return s.replace(/\s+/g, ' ').trim();
   }
 
   /** Remove extension, collapse whitespace, remove trailing `_n_` (spaces tolerant). */
-  static baseName(raw: string): string {
+  baseName(raw: string): string {
     const noExt = raw.replace(/\.[a-z0-9]+$/i, "");
     // Allow arbitrary spaces around underscores and the number, at the very end
     const noVar = noExt.replace(/\s*_+\s*\d+\s*_+\s*$/i, "");
-    return MapResolver.normalizeWhitespace(noVar);
+    return this.normalizeWhitespace(noVar);
   }
 
   /** Extract numeric variation; returns 0 if none. Handles spaces: " _0_ ", "__1__", etc. */
-  static variationNumber(raw: string): number {
+  variationNumber(raw: string): number {
     const noExt = raw.replace(/\.[a-z0-9]+$/i, "");
     const m = noExt.match(/\s*_+\s*(\d+)\s*_+\s*$/i);
     return m ? parseInt(m[1], 10) : 0;
   }
 
   /** Normalization used for fuzzy matching via Levenshtein. */
-  static normalizeForMatch(word: string): string {
+  normalizeForMatch(word: string): string {
     return word
       .trim()
       .toUpperCase()
@@ -265,7 +284,7 @@ export class MapResolver {
   // ---------- Aggregation & Resolution (now using cache, sync) ----------
 
   /** Fetch all entries from cache (no I/O). */
-  private static allEntriesFromCache(): MapFileEntry[] {
+  private allEntriesFromCache(): MapFileEntry[] {
     return this._cachedEntries || [];
   }
 
@@ -273,24 +292,24 @@ export class MapResolver {
    * Collect ALL files (custom + vanilla + future providers) that share the same base name.
    * Matching is realm-agnostic; realms are preserved only for browsing/path building.
    */
-  private static collectAllForBase(base: string): MapFileEntry[] {
-    const target = MapResolver.normalizeForMatch(base);
+  private collectAllForBase(base: string): MapFileEntry[] {
+    const target = this.normalizeForMatch(base);
     const entries = this.allEntriesFromCache();
-    return entries.filter(e => MapResolver.normalizeForMatch(e.fileName) === target);
+    return entries.filter(e => this.normalizeForMatch(e.fileName) === target);
   }
 
   /** Sort keys: provider priority, then prefer no variation (0), then lowest number. */
-  private static sortByPreference(a: MapFileEntry, b: MapFileEntry): number {
+  private sortByPreference(a: MapFileEntry, b: MapFileEntry): number {
     const pr = (id: string) => {
-      const idx = MapResolver.providerPriority.indexOf(id);
+      const idx = this.providerPriority.indexOf(id);
       return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER;
     };
     const pa = pr(a.source);
     const pb = pr(b.source);
     if (pa !== pb) return pa - pb;
 
-    const va = MapResolver.variationNumber(a.fileName);
-    const vb = MapResolver.variationNumber(b.fileName);
+    const va = this.variationNumber(a.fileName);
+    const vb = this.variationNumber(b.fileName);
     if (va === 0 && vb !== 0) return -1;
     if (vb === 0 && va !== 0) return 1;
     return va - vb;
@@ -300,9 +319,9 @@ export class MapResolver {
    * Build a GameStateMap for a given seed (realm/file from detection) synchronously
    * using cached entries. Realm is ignored for matching; we group by base name across ALL providers.
    */
-  public static makeMap(seed: { realm: string; mapFile: string }): GameStateMap | null {
-    const base = MapResolver.baseName(seed.mapFile); // tolerant to spaces/extension
-    const candidates = MapResolver.collectAllForBase(base);
+  public makeMap(seed: { realm: string; mapFile: string }): GameStateMap | null {
+    const base = this.baseName(seed.mapFile); // tolerant to spaces/extension
+    const candidates = this.collectAllForBase(base);
 
     if (candidates.length === 0) {
       // Fallback
@@ -310,7 +329,7 @@ export class MapResolver {
     }
 
     // Determine main by provider priority then variation number
-    const sorted = [...candidates].sort(MapResolver.sortByPreference);
+const sorted = [...candidates].sort((a, b) => this.sortByPreference(a, b));
     const main = sorted[0];
     const rest = sorted.slice(1);
 
@@ -320,10 +339,11 @@ export class MapResolver {
       realm: e.realm,
       mapFile: e.fileName,
       fullPath: e.fullPath,
+      imageUrl: e.imageUrl,
     });
 
     const variants = rest
-      .sort((a, b) => MapResolver.variationNumber(a.fileName) - MapResolver.variationNumber(b.fileName))
+      .sort((a, b) => this.variationNumber(a.fileName) - this.variationNumber(b.fileName))
       .map(toGSM);
 
     const mainGsm = toGSM(main);
@@ -333,7 +353,7 @@ export class MapResolver {
     return mainGsm;
   }
 
-  private static byProviderPriority(a: MapFileEntry, b: MapFileEntry): number {
+  private byProviderPriority(a: MapFileEntry, b: MapFileEntry): number {
     const idx = (id: string) => {
       const i = this.providerPriority.indexOf(id);
       return i >= 0 ? i : Number.MAX_SAFE_INTEGER;
@@ -341,7 +361,7 @@ export class MapResolver {
     return idx(a.source) - idx(b.source);
   }
 
-  private static byVariation(a: MapFileEntry, b: MapFileEntry): number {
+  private byVariation(a: MapFileEntry, b: MapFileEntry): number {
     const av = this.variationNumber(a.fileName);
     const bv = this.variationNumber(b.fileName);
     if (av === 0 && bv !== 0) return -1;
@@ -349,12 +369,12 @@ export class MapResolver {
     return av - bv;
   }
 
-  private static sortPreferred(a: MapFileEntry, b: MapFileEntry): number {
+  private sortPreferred(a: MapFileEntry, b: MapFileEntry): number {
     const p = this.byProviderPriority(a, b);
     return p !== 0 ? p : this.byVariation(a, b);
   }
 
-  public static listGroups(): MapGroup[] {
+  public listGroups(): MapGroup[] {
     const all = this.allEntriesFromCache();
 
     // 1) Group by normalized base name (realm-agnostic).
@@ -411,7 +431,7 @@ export class MapResolver {
   }
 
   /** 2b) realm -> base name -> variant count (excluding main) */
-  public static countsByRealm(): Record<string, Record<string, number>> {
+  public countsByRealm(): Record<string, Record<string, number>> {
     const groups = this.listGroups();
     const out: Record<string, Record<string, number>> = {};
     for (const g of groups) {
@@ -422,7 +442,7 @@ export class MapResolver {
   }
 
   /** 3) Rehydrate by name (realm-agnostic): return GameStateMap with variants */
-  public static makeMapByName(baseName: string): GameStateMap | null {
+  public makeMapByName(baseName: string): GameStateMap | null {
     const all = this.allEntriesFromCache();
     const key = this.normalizeForMatch(baseName);
     const candidates = all.filter(e => this.normalizeForMatch(e.fileName) === key);
@@ -441,7 +461,7 @@ export class GameStateGuesser {
   public readonly bus = createBus<{ gameState: GameState }>();
 
   constructor() {
-    MapResolver.init().catch(() => { });
+    MapResolver.Instance().init().catch(() => { });
   }
 
   private _state: GameState = { type: GameStateType.MENU };
@@ -542,7 +562,7 @@ export class GameStateGuesser {
     this._lastGuessedMap = { time: Date.now(), ...highestMatch };
 
     // Now build the final map using ALL providers (realm-agnostic matching, custom-priority, full variants)
-    const result = MapResolver.makeMap({
+    const result = MapResolver.Instance().makeMap({
       realm: highestMatch.realm,
       mapFile: highestMatch.mapFile,
     });
@@ -556,8 +576,8 @@ export class GameStateGuesser {
 
   // Leverage shared normalization
   calculateMapNameMatch(original: string, test: string) {
-    const a = MapResolver.normalizeForMatch(original);
-    const b = MapResolver.normalizeForMatch(test);
+    const a = MapResolver.Instance().normalizeForMatch(original);
+    const b = MapResolver.Instance().normalizeForMatch(test);
 
     const maxLen = Math.max(a.length, b.length);
     if (maxLen === 0) return 1;

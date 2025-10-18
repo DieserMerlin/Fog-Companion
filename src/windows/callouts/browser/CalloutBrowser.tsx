@@ -21,11 +21,11 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
   const { realms } = useMapDir();
 
   const isEqualMap = (map1: { mapFile: string, realm: string }, map2: { mapFile: string; realm: string }) => {
-    return MapResolver.baseName(map1?.mapFile || '') === MapResolver.baseName(map2?.mapFile || '');
+    return MapResolver.Instance().baseName(map1?.mapFile || '') === MapResolver.Instance().baseName(map2?.mapFile || '');
   };
 
   const selectMap = (map: { realm: string, mapFile: string }) => {
-    props.onSelect(isEqualMap(map, props.current) ? null : MapResolver.makeMap({ ...map }));
+    props.onSelect(isEqualMap(map, props.current) ? null : MapResolver.Instance().makeMap({ ...map }));
     CALLOUT_SETTINGS.update({ browser: false });
   };
 

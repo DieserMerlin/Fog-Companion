@@ -6,7 +6,7 @@ import {
 
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
-import { GameState, GameStateGuesser, MapResolver } from '../../game_state/GameState';
+import { GameState, GameStateGuesser } from '../../game_state/GameState';
 import { OcrAreasResult, performOcrAreas } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
@@ -138,7 +138,7 @@ class BackgroundController {
     });
 
     this._gameListener.start();
-    MapResolver.init();
+    this._windows.debug.restore();
   }
 
   /** Singleton accessor. */

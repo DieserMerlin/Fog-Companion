@@ -30,12 +30,10 @@ const CustomChip = (props: { label: string, hotkey: string, style?: CSSPropertie
 
 const mockRealm: keyof typeof MapDirectory = "Autohaven Wreckers";
 const mockMapFile: typeof MapDirectory[typeof mockRealm][number] = "Wreckers Yard.webp";
-let mockMap: GameStateMap = MapResolver.makeMap({ realm: mockRealm, mapFile: mockMapFile });
+let mockMap: GameStateMap = MapResolver.Instance().makeMap({ realm: mockRealm, mapFile: mockMapFile });
 
 const useManualMap = create<{ map: GameStateMap | null }>(() => ({ map: null }));
-const setManualMap = (map: GameStateMap | null) => {
-  useManualMap.setState({ map });
-}
+const setManualMap = (map: GameStateMap | null) => useManualMap.setState({ map });
 
 const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left' | 'right' }) => {
   const showHotkeys = CALLOUT_SETTINGS.hook(s => s.showHotkeys);
@@ -71,7 +69,7 @@ const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left'
           width: '100%',
           height: '100%',
           overflow: 'auto',
-          backgroundImage: !!mapVariant ? 'url("' + mapVariant.fullPath + '")' : undefined,
+          backgroundImage: !!mapVariant ? 'url("' + mapVariant.imageUrl + '")' : undefined,
           backgroundSize: 'contain',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: props.direction === 'right' ? 'top right' : 'top left',
@@ -103,14 +101,16 @@ export const CalloutApp = () => {
   }, [_mock]);
 
   useEffect(() => {
-    const keyboardListener = (e: KeyboardEvent) => e.stopPropagation();
-    window.addEventListener('keydown', keyboardListener);
-    window.addEventListener('keyup', keyboardListener);
-    window.addEventListener('keypress', keyboardListener);
+    const listener = (e: Event) => e.stopPropagation();
+    window.addEventListener('keydown', listener);
+    window.addEventListener('keyup', listener);
+    window.addEventListener('keypress', listener);
+    window.addEventListener('focus', listener);
     return () => {
-      window.removeEventListener('keydown', keyboardListener);
-      window.removeEventListener('keyup', keyboardListener);
-      window.removeEventListener('keypress', keyboardListener);
+      window.removeEventListener('keydown', listener);
+      window.removeEventListener('keyup', listener);
+      window.removeEventListener('keypress', listener);
+      window.removeEventListener('focus', listener);
     }
   }, []);
 

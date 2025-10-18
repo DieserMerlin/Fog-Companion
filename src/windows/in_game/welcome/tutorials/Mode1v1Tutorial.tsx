@@ -1,14 +1,14 @@
 import Link from "@mui/material/Link";
 import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
 import { IngameAppTab, useIngameApp } from "../../use-ingame-app";
-import { Tutorial, useTutorial } from "../AppTutorial";
+import { CloseTutorialConfirmation, Tutorial, useTutorial } from "../AppTutorial";
 import { SettingsHotkey } from "../../settings/AppSettingsHotkey";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import { Enable1v1ModeFeature } from "../../settings/EnableDisableFeatures";
 
-const open1v1Settings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); useTutorial.getState().clear(); };
-const SettingsLink = () => <Link onClick={open1v1Settings}>Settings</Link>;
+const open1v1Settings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
+const SettingsLink = () => <CloseTutorialConfirmation onClose={open1v1Settings}>Settings</CloseTutorialConfirmation>;
 
 export const MODE_1V1_TUTORIAL: Tutorial = {
   title: '1v1 Mode',

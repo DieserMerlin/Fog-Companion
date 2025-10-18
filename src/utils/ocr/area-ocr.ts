@@ -3,7 +3,7 @@ import { createWorker, PSM, Worker } from "tesseract.js";
 const STATIC_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/() .,|";
 
 // --- defaults you can tweak ---
-const DEFAULT_LUM_MIN = 120;
+const DEFAULT_LUM_MIN = 200;
 const DEFAULT_CHROMA_MAX = 18;
 const MID_GRAY_LUM_MIN = 150;
 const MID_GRAY_CHROMA_MAX = 10;
@@ -102,6 +102,7 @@ export type ScanArea = {
   whitelist?: string;
   lumMin?: number;
   chromaMax?: number;
+  canvas?: HTMLCanvasElement;
 };
 
 export type OcrScanArea = ScanArea & { type?: "ocr" };
@@ -191,7 +192,7 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
       jobs.push(pool.runJob(async (worker) => {
         // Crop into a dedicated canvas to avoid contention
         const { sx, sy, sw, sh } = normalizedToPixels(ocrArea.rect, img.width, img.height);
-        const canvas = document.createElement("canvas");
+        const canvas = ocrArea.canvas || document.createElement("canvas");
         canvas.width = sw;
         canvas.height = sh;
         const ctx = canvas.getContext("2d", { willReadFrequently: true })!;

@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactElement, memo, useCallback } from "react";
+import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Alert from '@mui/material/Alert';
@@ -15,6 +15,9 @@ import { SettingsHotkey } from './AppSettingsHotkey';
 import { AppSettingsSection, useAppSettings } from './use-app-settings';
 import { BACKGROUND_SETTINGS } from '../../background/background-settings';
 import { Enable1v1ModeFeature } from './EnableDisableFeatures';
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import { AppCustomMapSettings } from "./AppCustomMapSettings";
 
 /** ---------- Primitives ---------- */
 
@@ -111,6 +114,8 @@ const CalloutOverlaySettings = memo(() => {
     CALLOUT_SETTINGS.update({ showHotkeys: v });
   }, []);
 
+  const [customMapsManager, setCustomMapsManager] = useState(false);
+
   return (
     <>
       <Stack p={1}>
@@ -120,6 +125,13 @@ const CalloutOverlaySettings = memo(() => {
       <SettingsOption label="Enabled" description="Whether the map overlay should be enabled.">
         <SettingsHotkey name="map_showhide" />
         <Switch checked={calloutOverlay} onChange={handleToggleOverlay} />
+      </SettingsOption>
+
+      <Dialog fullScreen open={customMapsManager} onClose={() => setCustomMapsManager(false)}>
+        <AppCustomMapSettings onClose={() => setCustomMapsManager(false)} />
+      </Dialog>
+      <SettingsOption label="Custom grahpics" description="Manage your custom graphics">
+        <Button onClick={() => setCustomMapsManager(true)}>Open manager</Button>
       </SettingsOption>
 
       {calloutOverlay && (

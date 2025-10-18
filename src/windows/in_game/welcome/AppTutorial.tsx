@@ -1,12 +1,13 @@
 import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Dialog from '@mui/material/Dialog';
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { AnimatePresence, motion } from "motion/react";
-import React, { PropsWithChildren, ReactElement, memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { PropsWithChildren, ReactElement, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 import { WELCOME_TUTORIALS } from "./tutorials/WelcomeTutorial";
 
@@ -48,20 +49,49 @@ if (!localStorage.getItem('tutorial')) {
 
 /** ---------------- Primitives ---------------- */
 
-type RenderSlideProps = {
-  slide: TutorialStep,
+type SlideNavigationProps = {
   onPrev?: () => void,
   onNext: () => void,
   nextText?: Content,
   prevText?: Content
 };
 
-const ControlsBar = memo((props: { onPrev?: () => void; onNext: () => void; nextText?: Content; prevText?: Content; }) => {
-  const handleClose = useCallback(() => useTutorial.getState().clear(), []);
+type SlideTutorialPositionProps = {
+  current: {
+    section: Content;
+    slide?: Content;
+  },
+  next?: Content;
+};
+
+type RenderSlideProps = {
+  slide: TutorialStep,
+  navigation: SlideNavigationProps,
+  position: SlideTutorialPositionProps,
+};
+
+const TutorialPositionBar = (props: SlideTutorialPositionProps) => {
+  const slide = props.current.slide || props.current.section;
+  const section = (slide === props.current.section) ? null : props.current.section;
+
+  return (
+    <Stack direction={'row'} position={'absolute'} bottom={10} left={10} justifyContent={'center'} alignItems={'center'} spacing={1}>
+      {/* {!!section && <>
+        <small style={{ opacity: .8 }} children={section} />
+        <span>/</span>
+      </>}
+      {!!slide && <small children={slide} />}
+      <span style={{ flexGrow: 1 }} /> */}
+      {!!props.next && <small style={{ opacity: .5 }}> Next: <span children={props.next} /></small>}
+    </Stack>
+  );
+}
+
+const ControlsBar = memo((props: SlideNavigationProps) => {
   return (
     <Stack spacing={1} style={{ position: 'fixed', bottom: 20, right: 20 }} alignItems="right">
       <Stack direction="row" spacing={2} alignItems="center" justifyContent="flex-end">
-        <small><Link onClick={handleClose}>Close tutorial</Link></small>
+        <CloseTutorialConfirmation>Close tutorial</CloseTutorialConfirmation>
         {!!props.onPrev && (
           <Button startIcon={<ArrowBackIos />} variant="outlined" onClick={props.onPrev}>
             {props.prevText || 'Back'}
@@ -126,7 +156,9 @@ MediaPane.displayName = 'MediaPane';
 
 const RenderSlide = memo((props: RenderSlideProps) => {
   return (
-    <Stack position="absolute" width="100vw" height="100vh" direction="row">
+    <Stack position="absolute" width="100%" height="100%" direction="row">
+      <TutorialPositionBar {...props.position} />
+
       <Paper style={{ flexGrow: 1 }}>
         <Stack p={4} justifyContent="center" flexGrow={1} height="100%" spacing={4} position="relative">
           <Typography variant="h4">{props.slide.title}</Typography>
@@ -142,10 +174,8 @@ const RenderSlide = memo((props: RenderSlideProps) => {
       <MediaPane media={props.slide.media} />
 
       <ControlsBar
-        onPrev={props.onPrev}
-        onNext={props.onNext || (() => useTutorial.getState().clear())}
-        nextText={props.nextText}
-        prevText={props.prevText}
+        {...props.navigation}
+        onNext={props.navigation.onNext || (() => useTutorial.getState().clear())}
       />
     </Stack>
   );
@@ -184,7 +214,7 @@ const SlideAnimationWrapper = memo((
     <motion.div
       key={props.id}
       style={{
-        position: 'absolute', width: '100vw', height: '100vh',
+        position: 'absolute', width: '100%', height: '100%',
         left: 0, top: 0, display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden'
       }}
@@ -212,7 +242,7 @@ export const TutorialsOverlay = () => {
       {isOpen && (
         <motion.div
           key="tutorials"
-          style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 1000000, willChange: 'transform' }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1000000, willChange: 'transform' }}
           initial={{ x: '100%' }}   // use %; vw can be flaky in motion/react
           animate={{ x: 0 }}
           exit={{ x: '-100%' }}      // slide back out the same way it came in
@@ -246,13 +276,19 @@ const RenderTutorialsInner = ({ currentIndex, tutorials }: { currentIndex: numbe
         const onNext = () => useTutorial.setState(st => ({ currentIndex: st.currentIndex + 1 }));
 
         return {
-          onPrev: (isFirstTutorial && isFirstSlide) ? undefined : onPrev,
-          onNext: (isLastTutorial && isLastSlide) ? undefined : onNext,
-          nextText: s.buttonTexts?.next
-            || ((!isLastTutorial && isLastSlide) ? 'Next tutorial'
-              : (isLastTutorial && isLastSlide) ? 'Finish tutorial'
-                : undefined),
-          prevText: s.buttonTexts?.prev || undefined,
+          position: {
+            current: { section: t.title, slide: s.title !== t.title ? s.title : undefined },
+            next: tutorialSlides[i + 1]?.title
+          },
+          navigation: {
+            onPrev: (isFirstTutorial && isFirstSlide) ? undefined : onPrev,
+            onNext: (isLastTutorial && isLastSlide) ? undefined : onNext,
+            nextText: s.buttonTexts?.next
+              || ((!isLastTutorial && isLastSlide) ? 'Next tutorial'
+                : (isLastTutorial && isLastSlide) ? 'Finish tutorial'
+                  : undefined),
+            prevText: s.buttonTexts?.prev || undefined,
+          },
           slide: s,
         } satisfies RenderSlideProps;
       });
@@ -322,3 +358,24 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = memo(({
   );
 });
 TutorialVideo.displayName = 'TutorialVideo';
+
+export const CloseTutorialConfirmation = (props: PropsWithChildren<{ onClose?: () => void }>) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Link onClick={() => setOpen(true)}>{props.children}</Link>
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <Stack m={2} spacing={1}>
+          <Stack>
+            <Typography variant="h6">Close the tutorial?</Typography>
+            <span>This will close the tutorial. You can always restart it on the <b>About</b> tab.</span>
+          </Stack>
+          <Stack direction={'row'} spacing={1}>
+            <Button variant="outlined" color="info" onClick={() => setOpen(false)}>Not yet</Button>
+            <Button variant="contained" color="error" onClick={() => { setOpen(false); useTutorial.getState().clear(); props.onClose && setTimeout(props.onClose, 0) }}>Close Tutorial</Button>
+          </Stack>
+        </Stack>
+      </Dialog>
+    </>
+  )
+}

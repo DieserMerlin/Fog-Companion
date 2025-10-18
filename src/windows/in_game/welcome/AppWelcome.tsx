@@ -123,6 +123,7 @@ const CalloutCard = memo(() => {
     >
       <Typography variant="body2">
         Show <b>callout-images</b> as overlay and let the <b>auto-detection</b> work for you!
+        <br />You can also override the default graphics with your own ones.
       </Typography>
     </OnboardingCard>
   );
