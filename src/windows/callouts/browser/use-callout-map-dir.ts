@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { MapResolver } from "../../../game_state/GameState";
+import { MapResolver } from "../../../map_resolver/MapResolver";
 
 export const useMapDir = create<{ realms: Record<string, Record<string, number>>, update: (refresh: boolean) => void }>((set) => ({
   realms: {},
@@ -9,4 +9,5 @@ export const useMapDir = create<{ realms: Record<string, Record<string, number>>
   }
 }));
 
+useMapDir.subscribe(state => console.log(state));
 useMapDir.getState().update(false);

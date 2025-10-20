@@ -1,5 +1,4 @@
 import useIsFocusVisible from '@mui/utils/useIsFocusVisible';
-import { GameStateMap, MapResolver } from "../../../game_state/GameState";
 import { Accordion } from "../../../utils/mui/Accordion";
 import { useMapDir } from "./use-callout-map-dir";
 import { useMapBrowserNavigation } from "./use-map-browser-navigation";
@@ -10,9 +9,10 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Button from '@mui/material/Button';
 import { ButtonBaseActions } from '@mui/material/ButtonBase/ButtonBase';
-import Stack from '@mui/material/Stack';
-import { CALLOUT_SETTINGS } from '../callout-settings';
 import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
+import { GameStateMap, MapResolver } from '../../../map_resolver/MapResolver';
+import { CALLOUT_SETTINGS } from '../callout-settings';
 
 
 const normalizeFileName = (fileName: string) => fileName.replace(/_/g, '').replace(/\.[a-z]+$/gi, '');

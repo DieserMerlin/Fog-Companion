@@ -4,7 +4,6 @@ import { useDebounce } from "@uidotdev/usehooks";
 import { motion } from 'motion/react';
 import { CSSProperties, useEffect, useState } from "react";
 import { create } from "zustand";
-import { GameStateMap, MapResolver } from "../../game_state/GameState";
 import { MapDirectory } from "../../generated-map-directory";
 import { useHotkeys } from "../../utils/hooks/hotkey-hook";
 import { createStorage } from '../../utils/localstorage/typed-localstorage';
@@ -12,6 +11,7 @@ import { BaseWindow } from "../../utils/window/AppWindow";
 import { CalloutMapBrowser } from "./browser/CalloutBrowser";
 import { CALLOUT_SETTINGS, useCalloutVariant } from "./callout-settings";
 import { useGameState } from '../../utils/hooks/gamestate-hook';
+import { GameStateMap, MapResolver } from '../../map_resolver/MapResolver';
 
 const CustomChip = (props: { label: string, hotkey: string, style?: CSSProperties }) => {
   return (
