@@ -265,11 +265,8 @@ const Mode1v1Settings = memo(() => {
 
       <SettingsOption
         label={<><b>Killer</b>: Start on Swing/Rush (<b>M1</b>/<b>M2</b>)</>}
-        description={<>If enabled, the killer timer will be started on <b>M1</b> or <b>M2</b>.</>}
+        description={<>If enabled, the killer timer will be started on <b>M1</b> (or <b>M2</b> on auto-detected killers).</>}
       >
-        <Alert severity="info" variant="outlined">
-          I'm aware that <b>M2</b> is not great for Wraith. There might be a killer detection itf. Until then, uncloak and reset the timer.
-        </Alert>
         <Switch checked={startKllrOnSwing} onChange={handleStartKiller} />
       </SettingsOption>
 
