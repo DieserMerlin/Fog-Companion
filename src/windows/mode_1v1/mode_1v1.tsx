@@ -61,7 +61,7 @@ class Mode1v1 extends AppWindow {
       if (e.key === '162') this.timerApi.onCrouch();
     });
     overwolf.games.inputTracking.onMouseDown.addListener(e => {
-      this.timerApi.onSwing();
+      this.timerApi.onSwing(e.button === 'left' ? 'm1' : 'm2');
     })
   }
 }

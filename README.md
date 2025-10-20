@@ -1,2 +1,2 @@
-# DBD COMPanion
+# Fog Companion
 by Merlin

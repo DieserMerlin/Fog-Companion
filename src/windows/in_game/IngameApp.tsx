@@ -58,7 +58,7 @@ function AlwaysOnTopHeader() {
           })}
         >
           <span style={{ marginLeft: 10 }}>
-            <b>DBD COMPanion</b> <small>by Merlin</small>
+            <b>Fog Companion</b> <small>by Merlin</small>
           </span>
           <span style={{ flexGrow: 1 }} />
           <small style={{ marginRight: 10, opacity: 0.6 }}>

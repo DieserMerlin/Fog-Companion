@@ -46,24 +46,12 @@ export class Callouts extends AppWindow {
       const current = CALLOUT_SETTINGS.getValue().browser;
       CALLOUT_SETTINGS.update({ browser: !current });
     });
-    overwolf.games.inputTracking.onKeyDown.addListener(e => this.navigateMapBrowser(e.key))
+    OWHotkeys.onHotkeyDown(kHotkeys.mapUp, () => useMapBrowserNavigation.getState().previous());
+    OWHotkeys.onHotkeyDown(kHotkeys.mapDown, () => useMapBrowserNavigation.getState().next());
+    OWHotkeys.onHotkeyDown(kHotkeys.mapLeft, () => useMapBrowserNavigation.getState().close());
+    OWHotkeys.onHotkeyDown(kHotkeys.mapRight, () => useMapBrowserNavigation.getState().open());
   }
 
-  private async navigateMapBrowser(key: string) {
-    if (!CALLOUT_SETTINGS.getValue().browser) return;
-    const api = useMapBrowserNavigation.getState();
-
-    console.log('key', key);
-
-    if (["87", "38"].includes(key)) // Up, W
-      api.previous();
-    if (["83", "40"].includes(key)) // Down, S
-      api.next();
-    if (["65", "37"].includes(key)) // Left, A
-      api.close();
-    if (["68", "39", "13", "32"].includes(key)) // Right, D, Space, Enter
-      api.open();
-  }
 }
 
 Callouts.instance();

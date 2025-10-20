@@ -1,4 +1,4 @@
-import { Group, Help, Map, Settings, Timer } from "@mui/icons-material";
+import { Group, Help, Map, Settings, Timer, TipsAndUpdates } from "@mui/icons-material";
 import { Alert, Box, Button, Card, CardContent, Checkbox, FormControlLabel, Grid, Stack, Typography } from "@mui/material";
 import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
 
@@ -7,8 +7,10 @@ import { AppSettingsSection, useAppSettings } from "../settings/use-app-settings
 import { IngameAppTab, useIngameApp } from "../use-ingame-app";
 import { useTutorial } from "./AppTutorial";
 import { MODE_1V1_TUTORIAL } from "./tutorials/Mode1v1Tutorial";
-import { Enable1v1ModeFeature, EnableCalloutFeature } from "../settings/EnableDisableFeatures";
+import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
 import { CALLOUT_TUTORIAL } from "./tutorials/CalloutTutorial";
+import { BACKGROUND_SETTINGS } from "../../background/background-settings";
+import { SettingsHotkey } from "../settings/AppSettingsHotkey";
 
 /** ---------------- Primitives ---------------- */
 
@@ -20,10 +22,11 @@ const OnboardingCard = memo((
     onSettings?: () => void;
     onLearnMore?: () => void;
     enableDisable?: ReactElement;
+    enabled?: boolean;
   }>
 ) => {
   return (
-    <Grid size={{ xs: 6 }} sx={{ flexGrow: 1, position: 'relative' }}>
+    <Grid size={{ xs: 6 }} sx={{ flexGrow: 1, position: 'relative', opacity: props.enabled ? 1 : 0.5 }}>
       <Card
         style={{ width: '100%', height: '100%' }}
       >
@@ -74,6 +77,7 @@ const TimerCard = memo(() => {
 
   return (
     <OnboardingCard
+      enabled={BACKGROUND_SETTINGS.hook(s => s.mode === "1v1")}
       icon={<Timer />}
       title="1v1-Timer"
       onSettings={openSettings}
@@ -92,6 +96,7 @@ TimerCard.displayName = 'TimerCard';
 const ScrimsCard = memo(() => {
   return (
     <OnboardingCard
+      enabled={false}
       icon={<Group />}
       title="Scrims/Tournaments"
       img=""
@@ -119,16 +124,60 @@ const CalloutCard = memo(() => {
       onSettings={openSettings}
       onLearnMore={openTutorial}
       enableDisable={<EnableCalloutFeature small />}
+      enabled={BACKGROUND_SETTINGS.hook(s => s.calloutOverlay)}
       img=""
     >
       <Typography variant="body2">
-        Show <b>callout-images</b> as overlay and let the <b>auto-detection</b> work for you!
-        <br />You can also override the default graphics with your own ones.
+        <Stack spacing={1}>
+          <span>
+            Show <b>callout-images</b> as overlay and let the <b>auto-detection</b> work for you!
+            <br />You can also override the default graphics with your own ones.
+          </span>
+          <span>
+            Open the Map Browser with <SettingsHotkey name="map_browser" />
+            <br /><small>(See/change how to control it in the settings or Tutorial)</small>
+          </span>
+        </Stack>
       </Typography>
     </OnboardingCard>
   );
 });
 CalloutCard.displayName = 'CalloutCard';
+
+const SmartFeaturesCard = memo(() => {
+  return (
+    <OnboardingCard
+      icon={<TipsAndUpdates />}
+      title="Smart Features"
+      enableDisable={<EnableSmartFeatures />}
+      enabled={BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures)}
+      img=""
+    >
+      <Stack spacing={2}>
+        <Typography variant="body2">
+          <small style={{ opacity: .6 }}>
+            Allows the app to detect the game state using screenshots.
+            Disable this if you notice problems with your performance.
+          </small>
+        </Typography>
+        <Stack direction={'row'} alignItems={'center'}>
+          <Stack flexGrow={1}>
+            <span>Auto-Detect current map</span>
+            <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
+          </Stack>
+          <EnableMapDetectionFeature />
+        </Stack>
+        <Stack direction={'row'} alignItems={'center'}>
+          <Stack flexGrow={1}>
+            <span>Auto-Detect M2 killers</span>
+            <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
+          </Stack>
+          <EnableKillerDetectionFeature />
+        </Stack>
+      </Stack>
+    </OnboardingCard>
+  )
+})
 
 /** ---------------- Root ---------------- */
 
@@ -151,6 +200,7 @@ export const AppWelcome = () => {
         <TimerCard />
         <ScrimsCard />
         <CalloutCard />
+        <SmartFeaturesCard />
       </Grid>
 
       <FormControlLabel

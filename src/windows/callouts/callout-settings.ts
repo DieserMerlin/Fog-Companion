@@ -6,8 +6,6 @@ export type CalloutSettings = {
   size: number;
   opacity: number;
 
-  autoDetect: boolean;
-
   showHotkeys: boolean;
 
   browser: boolean;
@@ -16,8 +14,6 @@ export type CalloutSettings = {
 export const CALLOUT_SETTINGS = createStorage<CalloutSettings>('CALLOUT_SETTINGS', {
   size: .4,
   opacity: .5,
-
-  autoDetect: true,
 
   showHotkeys: true,
 

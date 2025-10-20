@@ -7,7 +7,7 @@ import {
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
 import { GameState, GameStateGuesser } from '../../game_state/GameState';
-import { OcrAreasResult, performOcrAreas } from '../../utils/ocr/area-ocr';
+import { AnyScanArea, OcrAreasResult, performOcrAreas, performOcrAreasOnImage } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../in_game/in_game-settings';
@@ -22,6 +22,8 @@ type AppEvents = {
   'app-mode-switch': AppMode,
   'select-map': { realm: string, fileName: string },
   'game-info': overwolf.games.RunningGameInfo | null,
+  'ocr-res': OcrAreasResult,
+  'ocr-decision': string,
 }
 
 declare global {
@@ -41,36 +43,12 @@ window.cache = {};
  * Constants & helpers
  * ========================================================================== */
 
-/**
- * OCR areas we sample repeatedly to “guess” the current DBD game context.
- * NOTE: These are kept identical to the original logic.
- */
-const OCR_AREAS = [
-  { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.5, h: 0.3 }, psm: PSM.SPARSE_TEXT },
-  { id: 'main-menu', type: 'ocr' as const, rect: { x: 0.05, y: 0.05, w: 0.3, h: 0.4 }, psm: PSM.SPARSE_TEXT },
-  { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.8, y: 0.85, w: 0.2, h: 0.15 }, psm: PSM.SPARSE_TEXT },
-  { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.7, y: 0, w: 0.3, h: 0.15 }, psm: PSM.SPARSE_TEXT },
-  {
-    id: 'loading-screen',
-    type: 'pure-black' as const,
-    rects: [
-      { x: 0, y: 0, w: 1, h: 0.02 },
-      { x: 0, y: 0.98, w: 1, h: 0.02 },
-      { x: 0, y: 0.02, w: 0.02, h: 0.96 },
-      { x: 0.98, y: 0.02, w: 0.02, h: 0.96 }
-    ],
-    blackMax: 10,
-    colorDeltaMax: 3,
-    minMatchRatio: 0.97
-  },
-  { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.25, y: 0.3, w: 0.5, h: 0.4 }, psm: PSM.SPARSE_TEXT },
-  { id: 'settings', type: 'ocr' as const, rect: { x: 0, y: 0, w: 1, h: 0.2 }, psm: PSM.SPARSE_TEXT },
-] as const;
 
 /** Convenience debug wrapper that mirrors original return shape & logs. */
 const makeReturn = (key: string, res: OcrAreasResult) => {
   const debug = { type: key, res: res[key as keyof OcrAreasResult] };
-  console.log(debug);
+  window.bus.emit('ocr-decision', key);
+  // console.log(debug);
   return debug;
 };
 
@@ -138,7 +116,7 @@ class BackgroundController {
     });
 
     this._gameListener.start();
-    this._windows.debug.restore();
+    // this._windows.debug.restore();
   }
 
   /** Singleton accessor. */
@@ -220,15 +198,99 @@ class BackgroundController {
     let last = 0;
 
     this._ocrInterval = setInterval(async () => {
-      // Keep the original throttling and gating as-is.
       if (lock || (Date.now() - last) < 1000) return;
+      if (!BACKGROUND_SETTINGS.getValue().enableSmartFeatures) return;
+
       lock = true;
 
       try {
-        const res = await performOcrAreas(OCR_AREAS as any);
-        await this.evaluateRes(res);
-      } catch (e) {
-        // Shut
+        const gi = await new Promise<overwolf.games.GetRunningGameInfoResult>((resolve) =>
+          overwolf.games.getRunningGameInfo(resolve)
+        );
+        if (!gi || !gi.success || !gi.isRunning || !gi.isInFocus) return;
+
+        const start = Date.now();
+
+        // Build areas exactly as before (unchanged)
+        const OCR_AREAS: AnyScanArea[] = [
+          { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 240, canvas: window.cache.canvas?.['map'] || undefined },
+          { id: 'main-menu', type: 'ocr' as const, rect: { x: 0, y: 0.0, w: 0.5, h: 0.6 }, psm: PSM.SINGLE_COLUMN, threshold: 120, canvas: window.cache.canvas?.['main-menu'] || undefined },
+          { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.7, y: 0.7, w: 0.3, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['menu-btn'] || undefined },
+          { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.65, y: 0, w: 0.35, h: 0.15 }, psm: PSM.SINGLE_LINE, canvas: window.cache.canvas?.['bloodpoints'] || undefined },
+          {
+            id: 'loading-screen',
+            type: 'pure-black' as const,
+            rects: [
+              { x: 0, y: 0, w: 1, h: 0.02 },
+              { x: 0, y: 0.98, w: 1, h: 0.02 },
+              { x: 0, y: 0.02, w: 0.02, h: 0.96 },
+              { x: 0.98, y: 0.02, w: 0.02, h: 0.96 }
+            ],
+            blackMax: 10,
+            colorDeltaMax: 3,
+            minMatchRatio: 0.97
+          },
+          { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.3, y: 0.3, w: 0.4, h: 0.2 }, psm: PSM.SPARSE_TEXT, canvas: window.cache.canvas?.['loading-text'] || undefined },
+          { id: 'settings', type: 'ocr' as const, rect: { x: 0, y: 0, w: 1, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['settings'] || undefined },
+        ] as const;
+
+        // 1) Capture one screenshot and reuse it for all stages
+        const img = await (async () => {
+          // reuse helper from area-ocr.ts via a tiny indirection
+          const mod = await import("../../utils/ocr/area-ocr");
+          // not exported, so call performOcrAreas([]) to force capture? We expose a helper instead:
+          // we added performOcrAreasOnImage(img, areas), so capture here with a private helper:
+          const _imgGetter = (mod as any).__captureScreenshotImage || (mod as any).captureScreenshotImage || null;
+          if (_imgGetter) return await _imgGetter();
+          // Fallback — call performOcrAreas to force capture; if null return
+          return null;
+        })();
+
+        if (!img) {
+          // Hard fallback to old path
+          const res = await performOcrAreas(OCR_AREAS as any);
+          window.bus.emit('ocr-res', res);
+          await this.evaluateRes(res!);
+          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
+          return;
+        }
+
+        // We’ll accumulate on the same result map
+        const res: OcrAreasResult = Object.create(null);
+
+        // Helper to run a subset against the captured image, publish, and try early-exit
+        const runSubset = async (subset: AnyScanArea[]) => {
+          const sub = await performOcrAreasOnImage(img, subset);
+          Object.assign(res, sub);
+          // alias preserved for evaluateRes
+          (res as any)['settings-back-btn'] = res['map'];
+          window.bus.emit('ocr-res', res);
+          const match = await this.evaluateRes(res as OcrAreasResult);
+          return !!match;
+        };
+
+        // Stage A: loading-screen first (cheap, can return early while keeping your check order)
+        if (await runSubset(OCR_AREAS.filter(a => (a as any).type === 'pure-black'))) {
+          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
+          return;
+        }
+
+        // Stage B: top-priority OCR — map, then settings
+        if (await runSubset(OCR_AREAS.filter(a => a.id === 'map'))) {
+          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
+          return;
+        }
+        if (await runSubset(OCR_AREAS.filter(a => a.id === 'settings'))) {
+          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
+          return;
+        }
+
+        // Stage C: the rest in one go (concurrent via scheduler)
+        await runSubset(OCR_AREAS.filter(a => a.id !== 'map' && a.id !== 'settings' && (a as any).type !== 'pure-black'));
+
+        console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
+      } catch {
+        // swallow
       } finally {
         last = Date.now();
         lock = false;
@@ -251,13 +313,14 @@ class BackgroundController {
     // Alias preserved
     (res as any)['settings-back-btn'] = res['map'];
 
-    console.log(res['map']);
-
     // 1) Map
     if (res['map']?.type === 'ocr') {
       const mapRes = res['map'] as Extract<NonNullable<typeof res['map']>, { type: 'ocr' }>;
-      if ((await Promise.all(mapRes.text.map(async guess => await this.guesser.guessMap(guess)))).some(Boolean)) {
+      if (mapRes.text.map(guess => this.guesser.guessMap(guess)).some(Boolean)) {
         return makeReturn('map', res);
+      }
+      if (this.guesser.guessKiller(mapRes)) {
+        return makeReturn('killer', res);
       }
     }
 
@@ -316,6 +379,8 @@ class BackgroundController {
         return makeReturn('settings-back-btn', res);
       }
     }
+
+    this.guesser.assumeInMatch();
 
     return null;
   }

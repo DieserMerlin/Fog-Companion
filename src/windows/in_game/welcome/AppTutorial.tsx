@@ -18,7 +18,7 @@ type Content = string | number | ReactElement | ReactElement[];
 export type TutorialStep = {
   title: Content;
   content?: Content;
-  media?: { type: 'image' | 'video', src: string | string[], position: string },
+  media?: { type: 'image' | 'video', src: string | string[], position: string, fit?: "contain" | "cover" | "fill" | "none" | "scale-down" },
   notice?: Content;
   buttonTexts?: { next?: Content, prev?: Content }
 };
@@ -106,24 +106,105 @@ const ControlsBar = memo((props: SlideNavigationProps) => {
 });
 ControlsBar.displayName = 'ControlsBar';
 
-const MediaPane = memo((props: { media?: TutorialStep['media'] }) => {
-  const [mediaSrc, setMediaSrc] = useState<string | undefined>(undefined);
+const preloadCache = new Map<string, Promise<void>>();
 
-  // Keep original behavior: start once when mounted (no dependency on props.media)
-  useEffect(() => {
-    if (!props.media) return;
-    if (typeof props.media.src === 'string') {
-      setMediaSrc(props.media.src);
-      return;
+function preload(url: string) {
+  if (preloadCache.has(url)) return preloadCache.get(url)!;
+
+  const p = new Promise<void>((resolve) => {
+    const img = new Image();
+    (img as any).decoding = 'async';
+    img.src = url;
+
+    const done = () => {
+      (img as any).decode?.().then(() => resolve()).catch(() => resolve());
+    };
+
+    if (img.complete) done();
+    else {
+      img.onload = done;
+      img.onerror = () => resolve();
     }
-    if (!Array.isArray(props.media.src) || !props.media.src.length) return;
+  });
+
+  preloadCache.set(url, p);
+  return p;
+}
+
+const MediaPane = memo((props: { media?: TutorialStep['media'] }) => {
+  // get urls once on mount (preserve original semantics)
+  const urls = useMemo<string[]>(() => {
+    if (!props.media || props.media.type !== 'image') return [];
+    const s = props.media.src;
+    return typeof s === 'string' ? [s] : (Array.isArray(s) ? s : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // <-- intentionally empty
+
+  const isImage = props.media?.type === 'image';
+  const hasMultiple = urls.length > 1;
+
+  // two-layer crossfade state (used only when hasMultiple)
+  const [active, setActive] = useState<0 | 1>(0);
+  const [layerSrc, setLayerSrc] = useState<[string | undefined, string | undefined]>([undefined, undefined]);
+
+  useEffect(() => {
+    if (!props.media || !isImage) return;
+    if (!hasMultiple) return; // <-- NEW: no animation/timer for a single image
+
     let i = 0;
-    setMediaSrc(props.media.src[i++]);
-    const interval = setInterval(() => {
-      setMediaSrc(props.media!.src[i++ % props.media!.src.length]);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []); // intentionally empty to keep exact original timing semantics
+    let rafId = 0 as number;
+    let timeoutId = 0 as number;
+    let running = true;
+    let activeIdx: 0 | 1 = 0;
+
+    // Preload all to avoid fetch during the slideshow
+    urls.forEach(preload);
+
+    const schedule = (fn: () => void, ms: number) => {
+      timeoutId = window.setTimeout(() => {
+        rafId = requestAnimationFrame(fn);
+      }, ms);
+    };
+
+    const setLayer = async (targetIdx: 0 | 1, url: string) => {
+      await preload(url);
+      if (!running) return;
+
+      setLayerSrc(prev => {
+        const next: [string | undefined, string | undefined] = [...prev] as any;
+        next[targetIdx] = url;
+        return next;
+      });
+
+      rafId = requestAnimationFrame(() => {
+        if (!running) return;
+        activeIdx = targetIdx;
+        setActive(activeIdx);
+      });
+    };
+
+    // Prime first frame
+    setLayer(0, urls[i++ % urls.length]);
+
+    // Loop
+    const tick = async () => {
+      if (!running) return;
+      const nextIdx = (activeIdx ^ 1) as 0 | 1;
+      const nextUrl = urls[i++ % urls.length];
+      await setLayer(nextIdx, nextUrl);
+      if (!running) return;
+      schedule(tick, 1000); // original cadence
+    };
+
+    schedule(tick, 1000);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // keep original mount-only behavior
 
   if (!props.media) return null;
 
@@ -134,16 +215,76 @@ const MediaPane = memo((props: { media?: TutorialStep['media'] }) => {
         backgroundImage: `linear-gradient(0deg,rgba(2, 0, 36, 0) 0%, ${t.palette.background.paper} 100%)`,
         transform: 'translateY(100%)', position: 'relative', zIndex: 1000002
       })} />
-      {props.media.type === 'image'
-        ? <div style={{
-          width: '100%', height: '90%',
-          backgroundImage: `url(${mediaSrc})`,
-          backgroundSize: 'cover',
-          backgroundPosition: props.media.position
-        }} />
-        : <div style={{ width: '100%', height: '90%' }}>
-          <TutorialVideo src={mediaSrc} position={props.media.position} />
-        </div>}
+
+      {isImage ? (
+        hasMultiple ? (
+          // ---- Cross-fade only when there are 2+ images ----
+          <Box sx={{ position: 'relative', width: '100%', height: '90%', overflow: 'hidden', bgcolor: 'common.black' }}>
+            <Box
+              component="img"
+              src={layerSrc[0]}
+              alt=""
+              decoding="async"
+              loading="eager"
+              sx={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: props.media!.position,
+                opacity: active === 0 ? 1 : 0,
+                transition: 'opacity 300ms ease',
+                willChange: 'opacity',
+                pointerEvents: 'none',
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)'
+              }}
+            />
+            <Box
+              component="img"
+              src={layerSrc[1]}
+              alt=""
+              decoding="async"
+              loading="eager"
+              sx={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: props.media!.position,
+                opacity: active === 1 ? 1 : 0,
+                transition: 'opacity 300ms ease',
+                willChange: 'opacity',
+                pointerEvents: 'none',
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)'
+              }}
+            />
+          </Box>
+        ) : (
+          // ---- Static single image: no animation, no timer ----
+          <Box sx={{ position: 'relative', width: '100%', height: '90%', overflow: 'hidden' }}>
+            <Box
+              component="img"
+              src={urls[0]}
+              alt=""
+              decoding="async"
+              loading="eager"
+              sx={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: props.media!.position,
+                // no transition -> no fade
+                pointerEvents: 'none',
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)'
+              }}
+            />
+          </Box>
+        )
+      ) : (
+        // video unchanged
+        <div style={{ width: '100%', height: '90%' }}>
+          <TutorialVideo
+            src={typeof props.media.src === 'string' ? props.media.src : (props.media.src as string[])[0]}
+            position={props.media.position}
+          />
+        </div>
+      )}
+
       <Box sx={t => ({
         width: '100%', height: '5%',
         backgroundImage: `linear-gradient(180deg,rgba(2, 0, 36, 0) 0%, ${t.palette.background.paper} 100%)`,
@@ -190,8 +331,8 @@ const BOTTOM = 1000001;
 const slideVariants = {
   initial: (dir: 1 | -1) => (
     dir === 1
-      ? { width: '50vw', x: '100vw', filter: 'brightness(1) blur(0)', zIndex: TOP }
-      : { width: '100vw', x: '-50vw', filter: 'brightness(0.7) blur(10px)', zIndex: BOTTOM }
+      ? { width: '50vw', x: '100vw', filter: 'brightness(1)', zIndex: TOP }
+      : { width: '100vw', x: '-50vw', filter: 'brightness(0.7)', zIndex: BOTTOM }
   ),
   animate: (dir: 1 | -1) => ({
     width: '100vw',
@@ -202,8 +343,8 @@ const slideVariants = {
   }),
   exit: (dir: 1 | -1) => (
     dir === 1
-      ? { width: '100vw', x: '-50vw', filter: 'brightness(0.7) blur(10px)', zIndex: BOTTOM }
-      : { width: '50vw', x: '100vw', filter: 'brightness(1) blur(0)', zIndex: TOP }
+      ? { width: '100vw', x: '-50vw', filter: 'brightness(0.7)', zIndex: BOTTOM }
+      : { width: '50vw', x: '100vw', filter: 'brightness(1)', zIndex: TOP }
   ),
 };
 
@@ -315,6 +456,7 @@ type TutorialVideoProps = {
   poster?: string;
   children?: React.ReactNode;
   className?: string;
+  fit?: "contain" | "cover" | "fill" | "none" | "scale-down"
 };
 
 export const TutorialVideo: React.FC<TutorialVideoProps> = memo(({
@@ -323,6 +465,7 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = memo(({
   poster,
   children,
   className,
+  fit
 }) => {
   return (
     <Box
@@ -348,7 +491,7 @@ export const TutorialVideo: React.FC<TutorialVideoProps> = memo(({
           inset: 0,
           width: "100%",
           height: "100%",
-          objectFit: "cover",
+          objectFit: fit || "cover",
           objectPosition: position,
           pointerEvents: "none",
         }}

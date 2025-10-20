@@ -4,25 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <title>Debug</title>
-  <style>
-    body {
-      color: white;
-    }
-
-    .draggable {
-      cursor: grab;
-    }
-
-    pre {
-      background-color: #00000280;
-    }
-  </style>
 </head>
 
-<body class="debug draggable">
-  <pre id="output"></pre>
-  <div id="canvas"></div>
-  <script type="module" src="./debug.ts"></script>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./debug.tsx"></script>
 </body>
 
 </html>

@@ -1,4 +1,7 @@
-import { createWorker, PSM, Worker } from "tesseract.js";
+// area-ocr.ts
+import { createWorker, createScheduler, PSM, Scheduler, Worker } from "tesseract.js";
+
+/* ---------------- Shared constants (unchanged) ---------------- */
 
 const STATIC_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/() .,|";
 
@@ -14,84 +17,48 @@ const DEFAULT_SAMPLE_STRIDE = 2;
 const DEFAULT_MIN_MATCH_RATIO = 0.98;
 const DEFAULT_COLOR_DELTA_MAX = 8;
 
-// ---------- Worker Pool (3 workers) ----------
-type WorkerWithParams = Worker & { __lastParams?: Record<string, string> };
+/* ---------------- NEW: Native Tesseract scheduler ---------------- */
 
-class TesseractPool {
-  private size: number;
-  private pool: WorkerWithParams[] = [];
-  private queue: Array<(w: WorkerWithParams) => Promise<void>> = [];
-  private busy = 0;
-  private initPromise: Promise<void> | null = null;
+let scheduler: Scheduler | null = null;
+let schedulerInitPromise: Promise<void> | null = null;
 
-  constructor(size = 3) { this.size = size; }
+const WORKER_COUNT = Math.max(2, Math.min(3, (navigator.hardwareConcurrency || 4) - 1));
 
-  private async init() {
-    if (this.initPromise) return this.initPromise;
-    this.initPromise = (async () => {
-      const workers = await Promise.all(
-        Array.from({ length: this.size }, async () => {
-          const w = (await createWorker("eng")) as WorkerWithParams;
-          // sensible defaults; per-job overrides below
-          await w.setParameters({
-            tessedit_pageseg_mode: PSM.SPARSE_TEXT_OSD,
-            preserve_interword_spaces: "1",
-            tessedit_char_whitelist: STATIC_WHITELIST,
-          });
-          w.__lastParams = {
-            tessedit_pageseg_mode: String(PSM.SPARSE_TEXT_OSD),
-            preserve_interword_spaces: "1",
-            tessedit_char_whitelist: STATIC_WHITELIST,
-          };
-          return w;
-        })
-      );
-      this.pool.push(...workers);
-    })();
-    return this.initPromise;
-  }
-
-  async runJob<T>(fn: (w: WorkerWithParams) => Promise<T>): Promise<T> {
-    await this.init();
-    return new Promise<T>((resolve, reject) => {
-      const job = async (worker: WorkerWithParams) => {
-        try {
-          this.busy++;
-          const res = await fn(worker);
-          resolve(res);
-        } catch (e) {
-          reject(e);
-        } finally {
-          this.busy--;
-          // return worker to pool and tick queue
-          this.pool.push(worker);
-          this.tick();
-        }
-      };
-      this.queue.push(job as any);
-      this.tick();
-    });
-  }
-
-  private tick() {
-    while (this.pool.length && this.queue.length) {
-      const w = this.pool.pop()!;
-      const j = this.queue.shift()!;
-      // fire and forget (promise handled in runJob)
-      j(w);
-    }
-  }
-
-  async destroy() {
-    // optional: call when app shuts down
-    await Promise.all(this.pool.map(w => w.terminate()));
-    this.pool.length = 0;
-  }
+async function ensureScheduler() {
+  if (schedulerInitPromise) return schedulerInitPromise;
+  scheduler = createScheduler();
+  schedulerInitPromise = (async () => {
+    // Create N workers and add to scheduler
+    await Promise.all(
+      Array.from({ length: WORKER_COUNT }).map(async () => {
+        // NEW: set language & OEM at creation (v5+ API)
+        const w = (await createWorker("eng")) as Worker;
+        // Light global defaults — per-job overrides still applied below
+        await w.setParameters({
+          // OSD is expensive; turn it off by default
+          tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+          preserve_interword_spaces: "1",
+          tessedit_char_whitelist: STATIC_WHITELIST,
+          // Speed trick (works on modern Tesseract; ignored if unavailable)
+          // Avoids trying both inversion polarities
+          tessedit_do_invert: "0",
+        });
+        scheduler!.addWorker(w);
+      })
+    );
+  })();
+  return schedulerInitPromise;
 }
 
-const pool = new TesseractPool(3);
+export async function destroyOcrScheduler() {
+  if (!scheduler) return;
+  await scheduler.terminate();
+  scheduler = null;
+  schedulerInitPromise = null;
+}
 
-// ---------- Public API ----------
+/* ---------------- Public types (unchanged) ---------------- */
+
 export type NormalizedRect = { x: number; y: number; w: number; h: number };
 
 export type ScanArea = {
@@ -115,6 +82,7 @@ export type PureBlackScanArea = {
   sampleStride?: number;
   minMatchRatio?: number;
   colorDeltaMax?: number;
+  canvas?: HTMLCanvasElement;
 };
 
 export type AnyScanArea = OcrScanArea | PureBlackScanArea;
@@ -132,65 +100,60 @@ export type PureBlackResult = {
 
 export type OcrAreasResult = Record<string, OCRSingleResult | PureBlackResult>;
 
-/**
- * Captures a screenshot (while the game is focused) and OCRs multiple areas.
- * Now uses a 3-worker scheduler to process areas concurrently.
- */
-export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasResult | null> {
-  // 0) Ensure there's a running, focused game.
-  const gi = await new Promise<overwolf.games.GetRunningGameInfoResult>((resolve) =>
-    overwolf.games.getRunningGameInfo(resolve)
-  );
-  if (!gi || !gi.success || !gi.isRunning || !gi.isInFocus) {
-    return null;
-  }
+/* ---------------- NEW: one-shot in-memory screenshot ---------------- */
 
-  // 1) Take screenshot
+async function captureScreenshotImage(): Promise<HTMLImageElement | null> {
   const shot = await new Promise<overwolf.media.FileResult>((resolve) =>
     overwolf.media.takeScreenshot(resolve)
   );
+  console.log({ shot });
   if (!shot.success || !shot.url || !shot.path) return null;
 
-  // 2) Read bytes via Overwolf IO
-  const bin = await new Promise<overwolf.io.ReadBinaryFileResult>((resolve) =>
-    overwolf.io.readBinaryFile(shot.path, {} as any, resolve)
-  );
-  if (!bin.success || !bin.content) {
-    await safeDelete(shot.path);
-    return null;
-  }
+  const img = await loadImage(shot.url);
+  try { await safeDelete(shot.path); } catch { }
+  return img;
+}
 
-  // 3) Create a Blob URL and load image
-  const u8 = new Uint8Array(bin.content as unknown as number[]);
-  const blob = new Blob([u8], { type: "image/png" });
-  const url = URL.createObjectURL(blob);
+/* ---------------- Public API ---------------- */
+
+/**
+ * Captures a screenshot and OCRs multiple areas.
+ * Uses native Tesseract scheduler, in-memory screenshots, and passes Canvas directly to recognize.
+ */
+export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasResult | null> {
+  // 0) Ensure running focused game
+  const gi = await new Promise<overwolf.games.GetRunningGameInfoResult>((resolve) =>
+    overwolf.games.getRunningGameInfo(resolve)
+  );
+  if (!gi || !gi.success || !gi.isRunning || !gi.isInFocus) return null;
+
+  // 1) Grab a screenshot (fast path in memory)
+  const img = await captureScreenshotImage();
+  if (!img) return null;
 
   try {
-    const img = await loadImage(url);
-    const needOcr = areas.some(a => (a as OcrScanArea).type === "ocr" || (a as OcrScanArea).type === undefined);
-    if (needOcr) {
-      // warm the pool (lazy anyway)
-      await (pool as any).init?.();
+    // 2) Warm scheduler only if any OCR areas exist
+    if (areas.some(a => (a as OcrScanArea).type === "ocr" || (a as OcrScanArea).type === undefined)) {
+      await ensureScheduler();
     }
 
     const results: OcrAreasResult = {};
-    // Prepare jobs (pure-black runs immediately on main thread; OCR goes to pool).
     const jobs: Promise<void>[] = [];
 
+    // --- NEW: do pure-black first; if it passes hard, we can short-circuit later in caller
     for (const area of areas) {
       if ((area as PureBlackScanArea).type === "pure-black") {
-        // Run *asynchronously* to interleave with OCR jobs (non-blocking scheduling).
-        jobs.push((async () => {
-          const res = runPureBlack(img, area as PureBlackScanArea);
-          results[(area as PureBlackScanArea).id] = res;
-        })());
-        continue;
+        const res = runPureBlack(img, area as PureBlackScanArea);
+        results[(area as PureBlackScanArea).id] = res;
       }
+    }
 
-      // OCR job via pool
+    for (const area of areas) {
+      if ((area as PureBlackScanArea).type === "pure-black") continue; // done above
+
       const ocrArea = area as OcrScanArea;
-      jobs.push(pool.runJob(async (worker) => {
-        // Crop into a dedicated canvas to avoid contention
+      jobs.push((async () => {
+        // Crop to a dedicated canvas
         const { sx, sy, sw, sh } = normalizedToPixels(ocrArea.rect, img.width, img.height);
         const canvas = ocrArea.canvas || document.createElement("canvas");
         canvas.width = sw;
@@ -198,46 +161,100 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
         const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
-        // Binarize in place
+        // Binarize in place (fast integer luminance)
         const lumMin = ocrArea.lumMin ?? ocrArea.threshold ?? DEFAULT_LUM_MIN;
         const chromaMax = ocrArea.chromaMax ?? DEFAULT_CHROMA_MAX;
         const imgData = ctx.getImageData(0, 0, sw, sh);
         binarizeGrayOnlyInPlace(imgData, { lumMin, chromaMax });
         ctx.putImageData(imgData, 0, 0);
 
-        // Minimize parameter churn per worker
-        const desiredParams: Record<string, string> = {
-          tessedit_pageseg_mode: String(ocrArea.psm ?? PSM.SPARSE_TEXT_OSD),
+        // Per-job Tesseract params (avoid OSD; tighten whitelist)
+        const params: Record<string, string> = {
+          tessedit_pageseg_mode: String(ocrArea.psm ?? PSM.SPARSE_TEXT),
           tessedit_char_whitelist: ocrArea.whitelist ?? STATIC_WHITELIST,
           preserve_interword_spaces: "1",
+          // Hint to skip inversion if possible
+          tessedit_do_invert: "0",
         };
-        const last = worker.__lastParams || {};
-        const needsUpdate =
-          last.tessedit_pageseg_mode !== desiredParams.tessedit_pageseg_mode ||
-          last.tessedit_char_whitelist !== desiredParams.tessedit_char_whitelist;
 
-        if (needsUpdate) {
-          await worker.setParameters(desiredParams);
-          worker.__lastParams = desiredParams;
+        // Numbers-only boost for bloodpoints
+        if (ocrArea.id === "bloodpoints") {
+          params.classify_bln_numeric_mode = "1";
         }
 
-        const { data: ocr } = await worker.recognize(canvas.toDataURL("image/png"));
+        // IMPORTANT: pass Canvas directly — no base64 re-encode
+        const blob = await canvasToBlob(canvas);               // NEW
+        const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
+
         const text = (ocr.text || "").trim();
         results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
-      }));
+      })());
     }
 
-    // Execute with concurrency via pool + async pure-black jobs
     await Promise.all(jobs);
-
     return results;
   } finally {
-    URL.revokeObjectURL(url);
-    await safeDelete(shot.path);
+    // No file cleanup needed for in-memory screenshots
   }
 }
 
-// ----- helpers -----
+/**
+ * NEW: Run OCR on a *given* image (used by the short-circuit caller to avoid re-screenshotting).
+ */
+export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnyScanArea[]): Promise<OcrAreasResult> {
+  const results: OcrAreasResult = {};
+  // @ts-expect-error
+  if (areas.some(a => (a as OcrScanArea).type !== "pure-black")) await ensureScheduler();
+
+  const jobs: Promise<void>[] = [];
+  for (const area of areas) {
+    if ((area as PureBlackScanArea).type === "pure-black") {
+      results[(area as PureBlackScanArea).id] = runPureBlack(img, area as PureBlackScanArea);
+      continue;
+    }
+
+    const ocrArea = area as OcrScanArea;
+    jobs.push((async () => {
+      const { sx, sy, sw, sh } = normalizedToPixels(ocrArea.rect, img.width, img.height);
+      const canvas = ocrArea.canvas || document.createElement("canvas");
+      canvas.width = sw; canvas.height = sh;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      const lumMin = ocrArea.lumMin ?? ocrArea.threshold ?? DEFAULT_LUM_MIN;
+      const chromaMax = ocrArea.chromaMax ?? DEFAULT_CHROMA_MAX;
+      const imgData = ctx.getImageData(0, 0, sw, sh);
+      binarizeGrayOnlyInPlace(imgData, { lumMin, chromaMax });
+      ctx.putImageData(imgData, 0, 0);
+
+      const params: Record<string, string> = {
+        tessedit_pageseg_mode: String(ocrArea.psm ?? PSM.SPARSE_TEXT),
+        tessedit_char_whitelist: ocrArea.whitelist ?? STATIC_WHITELIST,
+        preserve_interword_spaces: "1",
+        tessedit_do_invert: "0",
+      };
+      if (ocrArea.id === "bloodpoints") {
+        params.classify_bln_numeric_mode = "1";
+      }
+
+      const blob = await canvasToBlob(canvas);               // NEW
+      const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
+
+      const text = (ocr.text || "").trim();
+      results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
+    })());
+  }
+  await Promise.all(jobs);
+  return results;
+}
+
+/* ---------------- helpers (mostly unchanged; faster luminance) ---------------- */
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+  });
+}
 
 function normalizedToPixels(rect: NormalizedRect, imgW: number, imgH: number) {
   const sx = clamp(Math.round(rect.x * imgW), 0, imgW - 1);
@@ -256,6 +273,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+// CHANGED: integer luminance math; avoids a few FP ops inside the hot loop
 function binarizeGrayOnlyInPlace(
   data: ImageData,
   opts: { lumMin: number; chromaMax: number }
@@ -263,74 +281,69 @@ function binarizeGrayOnlyInPlace(
   const { lumMin, chromaMax } = opts;
   const px = data.data;
 
-  for (let i = 0; i < px.length; i += 4) {
-    const r = px[i + 0], g = px[i + 1], b = px[i + 2];
+  // Pre-scale luminance threshold into same fixed-point domain (sum of weights = 255)
+  const lumMinScaled = lumMin * 255;
 
-    const maxc = Math.max(r, g, b);
-    const minc = Math.min(r, g, b);
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+
+    const maxc = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    const minc = r < g ? (r < b ? r : b) : (g < b ? g : b);
     const chroma = maxc - minc;
 
-    // default white background
-    px[i + 0] = 255;
-    px[i + 1] = 255;
-    px[i + 2] = 255;
+    // default white
+    px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
 
     if (chroma <= chromaMax) {
-      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      // integer luminance: 0.2126,0.7152,0.0722 ~= 54,183,18 over 255
+      const lumScaled = 54 * r + 183 * g + 18 * b;
 
-      if (lum >= lumMin || (chroma <= MID_GRAY_CHROMA_MAX && lum >= MID_GRAY_LUM_MIN)) {
-        px[i + 0] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255;
+      if (lumScaled >= lumMinScaled || (chroma <= MID_GRAY_CHROMA_MAX && lumScaled >= MID_GRAY_LUM_MIN * 255)) {
+        px[i] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255;
       }
     }
   }
 }
 
 function splitLines(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 }
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+/* ---------------- pure-black (unchanged) ---------------- */
+
 function runPureBlack(img: HTMLImageElement, area: PureBlackScanArea): PureBlackResult {
   const {
-    id,
     rects,
     blackMax = DEFAULT_BLACK_MAX,
     sampleStride = DEFAULT_SAMPLE_STRIDE,
     minMatchRatio = DEFAULT_MIN_MATCH_RATIO,
     colorDeltaMax = DEFAULT_COLOR_DELTA_MAX,
+    canvas: existingCanvas
   } = area;
 
-  let tested = 0;
-  let matched = 0;
+  let tested = 0, matched = 0;
   let firstFail: PureBlackResult["firstFail"] | undefined;
-
-  // Running mean for dominant color
-  let meanR = 0, meanG = 0, meanB = 0;
-  let seen = 0;
+  let meanR = 0, meanG = 0, meanB = 0, seen = 0;
 
   for (const rect of rects) {
     const { sx, sy, sw, sh } = normalizedToPixels(rect, img.width, img.height);
 
-    const canvas = document.createElement("canvas");
-    canvas.width = sw;
-    canvas.height = sh;
+    const canvas = existingCanvas || document.createElement("canvas");
+    canvas.width = sw; canvas.height = sh;
     const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
-    const data = ctx.getImageData(0, 0, sw, sh);
-    const { width, height, data: px } = data;
+    const { width, height, data: px } = ctx.getImageData(0, 0, sw, sh);
 
     for (let y = 0; y < height; y += sampleStride) {
       const baseY = y * width * 4;
       for (let x = 0; x < width; x += sampleStride) {
         const i = baseY + x * 4;
-        const r = px[i + 0], g = px[i + 1], b = px[i + 2], a = px[i + 3];
+        const r = px[i], g = px[i + 1], b = px[i + 2], a = px[i + 3];
         tested++;
 
         seen++;
@@ -339,17 +352,11 @@ function runPureBlack(img: HTMLImageElement, area: PureBlackScanArea): PureBlack
         meanB += (b - meanB) / seen;
 
         const isBlack = r <= blackMax && g <= blackMax && b <= blackMax;
-
-        const dr = Math.abs(r - meanR);
-        const dg = Math.abs(g - meanG);
-        const db = Math.abs(b - meanB);
+        const dr = Math.abs(r - meanR), dg = Math.abs(g - meanG), db = Math.abs(b - meanB);
         const isUniform = dr <= colorDeltaMax && dg <= colorDeltaMax && db <= colorDeltaMax;
 
-        if (isBlack || isUniform) {
-          matched++;
-        } else if (!firstFail) {
-          firstFail = { x: clamp(sx + x, 0, img.width - 1), y: clamp(sy + y, 0, img.height - 1), r, g, b, a };
-        }
+        if (isBlack || isUniform) matched++;
+        else if (!firstFail) firstFail = { x: clamp(sx + x, 0, img.width - 1), y: clamp(sy + y, 0, img.height - 1), r, g, b, a };
       }
     }
   }
@@ -368,26 +375,23 @@ function runPureBlack(img: HTMLImageElement, area: PureBlackScanArea): PureBlack
   };
 }
 
+/* ---------------- cleanup ---------------- */
+
 async function safeDelete(path?: string) {
-  console.log('SAFEDELETE', path);
   if (!path) return;
-
-  const basePath = await new Promise<string>((res, rej) =>
-    // @ts-expect-error
-    overwolf.extensions.io.getStoragePath("pictures", _res => _res.error ? rej(_res.error) : res(_res.path))
-  );
-  const all = await new Promise<string[]>(res =>
-    overwolf.io.dir(basePath, _res =>
-      res((_res.data || []).filter(f => f.type === "file").map(f => basePath + '\\' + f.name))
-    )
-  );
-
   try {
-    await Promise.all(all.map(path => new Promise<object>((resolve) =>
+    const basePath = await new Promise<string>((res, rej) =>
       // @ts-expect-error
-      overwolf.extensions.io.delete("pictures", path, resolve)
+      overwolf.extensions.io.getStoragePath("pictures", _res => _res.error ? rej(_res.error) : res(_res.path))
+    );
+    const all = await new Promise<string[]>(res =>
+      overwolf.io.dir(basePath, _res =>
+        res((_res.data || []).filter(f => f.type === "file").map(f => basePath + "\\" + f.name))
+      )
+    );
+    await Promise.all(all.map(p => new Promise<object>((resolve) =>
+      // @ts-expect-error
+      overwolf.extensions.io.delete("pictures", p, resolve)
     )));
-  } catch {
-    /* ignore cleanup errors */
-  }
+  } catch { /* ignore */ }
 }

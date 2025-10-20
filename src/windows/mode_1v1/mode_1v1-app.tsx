@@ -56,7 +56,10 @@ export const useMode1v1TimerAPI = () => {
 
   }
 
+  const gameStateType = useGameState(s => s.state?.type);
+
   useEffect(() => stop(), [settings.selected]);
+  useEffect(() => { (gameStateType === GameStateType.MENU) && stop() }, [gameStateType]);
 
   const start = () => {
     stop();
@@ -85,7 +88,12 @@ export const useMode1v1TimerAPI = () => {
     onEmote: () => {
       if (settings.stopOnEmote) stop();
     },
-    onSwing: () => {
+    onSwing: (type: 'm1' | 'm2') => {
+      const killer = useGameState.getState().state.killer;
+
+      if (type === 'm1' && !!killer && !killer?.start?.m1) return;
+      if (type === 'm2' && (!killer?.start?.m2)) return;
+
       if (
         settings.selected === 'killer' &&
         timerRefs.current.killer.value === 0 &&
@@ -243,6 +251,7 @@ export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void 
   useEffect(() => props.onApi(api), [api]);
 
   const { isRunning, refs, lastUpdate } = api.useLiveUpdate();
+  const killer = useGameState(s => s.state.killer);
 
   const hotkeyElement = useMemo(() => {
     if (!showHotkeys) return null;
@@ -255,7 +264,7 @@ export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void 
     }
     if (selected === 'killer') {
       out.push({ name: 'Switch', hotkey: mode_1v1_switch_surv });
-      if (!isRunning && startKllrOnSwing) out.push({ name: 'Start', hotkey: 'M1/M2', locked: !inMatch || !!refs.killer.value });
+      if (!isRunning && startKllrOnSwing) out.push({ name: 'Start', hotkey: killer?.start?.label || 'M1', locked: !inMatch || !!refs.killer.value });
     }
 
     if (isRunning && stopOnEmote) out.push({ name: 'Stop', hotkey: 'Emote (2)' });
@@ -268,7 +277,7 @@ export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void 
         <div className='timer_hotkey_binding'>{hk.hotkey}{hk.locked ? <Lock style={{ fontSize: 'inherit' }} /> : null}</div>
       </div>
     ));
-  }, [lastUpdate, inMatch, selected, showHotkeys, startKllrOnSwing, startSurvOnCrouch, mode_1v1_switch_kllr, mode_1v1_switch_surv, mode_1v1_start_stop_timer, mode_1v1_reset_timer]);
+  }, [killer, lastUpdate, inMatch, selected, showHotkeys, startKllrOnSwing, startSurvOnCrouch, mode_1v1_switch_kllr, mode_1v1_switch_surv, mode_1v1_start_stop_timer, mode_1v1_reset_timer]);
 
   return (
     <>

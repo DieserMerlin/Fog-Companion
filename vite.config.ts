@@ -2,8 +2,6 @@ import { defineConfig, Plugin } from 'vite';
 import { resolve } from 'path';
 import OverwolfPlugin from './.vite/plugins/OverwolfPlugin';
 
-process.env.NODE_ENV = "production";
-
 const r = (p: string) => resolve(__dirname, p);
 
 // Renames e.g. "src/windows/background/background.html" -> "background.html"

@@ -1,4 +1,3 @@
-import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Alert from '@mui/material/Alert';
@@ -7,19 +6,28 @@ import Slider from '@mui/material/Slider';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
+import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
 
-import { Accordion } from '../../../utils/mui/Accordion';
-import { CALLOUT_SETTINGS } from '../../callouts/callout-settings';
-import { MODE_1V1_SETTINGS } from '../../mode_1v1/mode_1v1-settings';
-import { SettingsHotkey } from './AppSettingsHotkey';
-import { AppSettingsSection, useAppSettings } from './use-app-settings';
-import { BACKGROUND_SETTINGS } from '../../background/background-settings';
-import { Enable1v1ModeFeature } from './EnableDisableFeatures';
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
+import { Accordion } from '../../../utils/mui/Accordion';
+import { BACKGROUND_SETTINGS } from '../../background/background-settings';
+import { CALLOUT_SETTINGS } from '../../callouts/callout-settings';
+import { MODE_1V1_SETTINGS } from '../../mode_1v1/mode_1v1-settings';
 import { AppCustomMapSettings } from "./AppCustomMapSettings";
+import { SettingsHotkey } from './AppSettingsHotkey';
+import { Enable1v1ModeFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature } from './EnableDisableFeatures';
+import { AppSettingsSection, useAppSettings } from './use-app-settings';
+import { MapBrowserHotkeys } from './MapBrowserHotkeys';
 
 /** ---------- Primitives ---------- */
+
+const SmartFeaturesNotice = () => {
+  const enabled = BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures);
+
+  if (enabled) return null;
+  return <small style={{ color: 'red' }}>Smart Features are disabled.</small>
+}
 
 const SettingsSection = memo((
   props: PropsWithChildren<{
@@ -91,15 +99,10 @@ const CalloutOverlaySettings = memo(() => {
 
   const size = CALLOUT_SETTINGS.hook(s => s.size);
   const opacity = CALLOUT_SETTINGS.hook(s => s.opacity);
-  const autoDetectMap = CALLOUT_SETTINGS.hook(s => s.autoDetect);
   const showHotkeysCallout = CALLOUT_SETTINGS.hook(s => s.showHotkeys);
 
   const handleToggleOverlay = useCallback((_: unknown, v: boolean) => {
     BACKGROUND_SETTINGS.update({ calloutOverlay: v });
-  }, []);
-
-  const handleToggleAutoDetect = useCallback((_: unknown, v: boolean) => {
-    CALLOUT_SETTINGS.update({ autoDetect: v });
   }, []);
 
   const handleSize = useCallback((_: unknown, v: number | number[]) => {
@@ -130,7 +133,7 @@ const CalloutOverlaySettings = memo(() => {
       <Dialog fullScreen open={customMapsManager} onClose={() => setCustomMapsManager(false)}>
         <AppCustomMapSettings onClose={() => setCustomMapsManager(false)} />
       </Dialog>
-      <SettingsOption label="Custom grahpics" description="Manage your custom graphics">
+      <SettingsOption label="Custom graphics" description="Manage your custom callout graphics">
         <Button onClick={() => setCustomMapsManager(true)}>Open manager</Button>
       </SettingsOption>
 
@@ -140,20 +143,24 @@ const CalloutOverlaySettings = memo(() => {
             <SettingsHotkey name="map_browser" />
           </SettingsOption>
 
+          <SettingsOption label="Browser Navigation" description="Use these hotkeys to navigate the browser.">
+            <MapBrowserHotkeys />
+          </SettingsOption>
+
           <Stack p={1}>
             <Typography variant="overline">Behaviour</Typography>
           </Stack>
 
           <SettingsOption
             label="Recognize Current Map"
-            description="If enabled, the app will try to find out the current map and open the overlay automatically."
+            description={<>If enabled, the app will try to find out the current map and open the overlay automatically.<br /><SmartFeaturesNotice /></>}
           >
             <Alert severity="warning" variant="outlined">
               <b>EXPERIMENTAL</b><br />
               The app is guessing maps based on the text in the lower left corner on the screen while the match starts.
               If you're tabbed out during that moment, the recognition won't work.
             </Alert>
-            <Switch checked={autoDetectMap} onChange={handleToggleAutoDetect} />
+            <EnableMapDetectionFeature />
           </SettingsOption>
 
           <Stack p={1}>
@@ -168,7 +175,7 @@ const CalloutOverlaySettings = memo(() => {
             <Slider min={.3} max={1} step={0.01} value={opacity} onChange={handleOpacity} />
           </SettingsOption>
 
-          <SettingsOption label="Show hotkeys" description="Whether the map overlay should show hints abount available shortcuts.">
+          <SettingsOption label="Show hotkeys" description="Whether the map overlay should show hints about available shortcuts.">
             <Switch checked={showHotkeysCallout} onChange={handleShowHotkeys} />
           </SettingsOption>
         </>
@@ -186,6 +193,7 @@ const Mode1v1Settings = memo(() => {
   const stopOnEmote = MODE_1V1_SETTINGS.hook(s => s.stopOnEmote);
   const showMs = MODE_1V1_SETTINGS.hook(s => s.showMs);
   const showHotkeys = MODE_1V1_SETTINGS.hook(s => s.showHotkeys);
+  const enableKillerDetection = BACKGROUND_SETTINGS.hook(s => s.enableKillerDetection);
 
   const handleStartKiller = useCallback((_: unknown, v: boolean) => {
     MODE_1V1_SETTINGS.update({ startKllrOnSwing: v });
@@ -207,6 +215,10 @@ const Mode1v1Settings = memo(() => {
     MODE_1V1_SETTINGS.update({ showHotkeys: v });
   }, []);
 
+  const handleKillerDetection = useCallback((_: unknown, v: boolean) => {
+    BACKGROUND_SETTINGS.update({ enableKillerDetection: v });
+  }, []);
+
   return (
     <>
       <Stack p={1}>
@@ -215,6 +227,10 @@ const Mode1v1Settings = memo(() => {
 
       <SettingsOption label="Mode Enabled" description="Use this hotkey to switch to or out of the 1v1 mode.">
         <Enable1v1ModeFeature />
+      </SettingsOption>
+
+      <SettingsOption label="Killer Detection" description={<>Enable/Disable detection of Blight and Nurse to start the timer with M2.<br /><SmartFeaturesNotice /></>}>
+        <EnableKillerDetectionFeature />
       </SettingsOption>
 
       <SettingsOption label={<>Switch to <b>Killer</b></>} description="Use this hotkey to switch to the killer timer.">

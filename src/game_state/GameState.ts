@@ -3,6 +3,7 @@ import { MapDirectory } from "../generated-map-directory";
 import { createBus } from "../utils/window/window-bus";
 import { CALLOUT_SETTINGS } from "../windows/callouts/callout-settings";
 import { OCRSingleResult, PureBlackResult } from "../utils/ocr/area-ocr";
+import { BACKGROUND_SETTINGS } from "../windows/background/background-settings";
 
 // ===== Shared Types =====
 
@@ -23,10 +24,25 @@ export type GameStateMap = {
   variants?: GameStateMap[];
 }
 
+export type DetectableKiller = {
+  name: string;
+  start: { m1?: true, m2?: true, label?: string };
+  detect: {
+    powerIngameText?: string[]
+  }
+}
+
+export const DetectableKillers: DetectableKiller[] = [
+  //  { name: 'WRAITH', start: { m1: true, label: 'M1' }, detect: { powerIngameText: ['CLOAK', 'UNCLOAK'] } }, // useless rn
+  { name: 'BLIGHT', start: { m2: true, label: "RUSH (M2)" }, detect: { powerIngameText: ['RUSH'] } },
+  { name: 'NURSE', start: { m2: true, label: "BLINK (M2)" }, detect: { powerIngameText: ['BLINK'] } },
+]
+
 export type GameState = {
   type: GameStateType;
   map?: GameStateMap;
-}
+  killer?: DetectableKiller;
+};
 
 export const ALLOWED_FILE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"];
 const isEqual = (a: any, b: any) => a === b;
@@ -94,7 +110,7 @@ export class CustomProvider implements IMapFileProvider {
   async folderExists() {
     const basePath = await new Promise<string>(res =>
       overwolf.settings.getOverwolfScreenshotsFolder(_res =>
-        res(_res.path.Value + '\\DBD COMPanion\\CustomMaps')
+        res(_res.path.Value + '\\Fog Companion\\CustomMaps')
       )
     );
 
@@ -274,7 +290,7 @@ export class MapResolver {
     return word
       .trim()
       .toUpperCase()
-      .replace(/[L|]/g, 'I')              // treat L and | like I (AFTER uppercasing)
+      .replace(/[L|1]/g, 'I')              // treat L, 1 and | like I (AFTER uppercasing)
       .replace(/["'`´^]/g, '')            // remove extra chars
       .replace(/\.[A-Z0-9]+$/, '')        // remove file extension
       .replace(/\s*_+\s*\d+\s*_+\s*$/, '')// strip trailing _n_ (whitespace tolerant)
@@ -329,7 +345,7 @@ export class MapResolver {
     }
 
     // Determine main by provider priority then variation number
-const sorted = [...candidates].sort((a, b) => this.sortByPreference(a, b));
+    const sorted = [...candidates].sort((a, b) => this.sortByPreference(a, b));
     const main = sorted[0];
     const rest = sorted.slice(1);
 
@@ -462,9 +478,12 @@ export class GameStateGuesser {
 
   constructor() {
     MapResolver.Instance().init().catch(() => { });
+    BACKGROUND_SETTINGS.hook.subscribe(() => {
+      this.push({ ...this.state });
+    })
   }
 
-  private _state: GameState = { type: GameStateType.MENU };
+  private _state: GameState = { type: GameStateType.UNKNOWN };
 
   public get state() {
     return this._state;
@@ -476,58 +495,98 @@ export class GameStateGuesser {
     }
   }
 
+  private lastUpdate = Date.now();
   push(next: GameState) {
+    const settings = BACKGROUND_SETTINGS.getValue();
+    if (!settings.enableKillerDetection) delete next.killer;
+    if (!settings.enableMapDetection) delete next.map;
+    if (!settings.enableSmartFeatures) next = { type: GameStateType.UNKNOWN };
+
     const prev = this._state;
     if (isEqual(prev, next)) return;
     if (prev.type !== GameStateType.MATCH) next.map = prev.map;
 
     this._state = next;
     this.publishGameStateChange(prev, next);
+    this.lastUpdate = Date.now();
   }
 
   escapeRe(s: string) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return s.replace(/[()|[\]\\\/]/g, "");
   }
 
+  /**
+   * Normalizes the result string[] for word-based matching.
+   * Result is lowercased and split to single words.
+   * @param array 
+   * @returns 
+   */
+  normalizeStringArray(array: string[]) {
+    return array
+      .map(text => text.toLowerCase().split(" ").filter(Boolean))
+      .flat()
+  }
+
+  /**
+   * If settings are detected, keep current state and stop propagation.
+   * @param type 
+   * @param res 
+   * @returns 
+   */
   guessSettings(type: 'left' | 'right', res: { text: string[] }) {
-    const leftKeywords = ["back", "esc", "apply changes"];
+    if (this.state.type === GameStateType.UNKNOWN) return;
+    const leftKeywords = ["back", "esc", "apply", "changes"];
 
     const result = type === 'left'
-      ? res.text
-        .map(t => t.toLowerCase().trim())
-        // drop obvious OCR noise like single chars or punctuation
-        .filter(t => t.length >= 3 && /[a-z]/.test(t))
-        .some(t => leftKeywords.some(k => new RegExp(`\\b${this.escapeRe(k)}\\b`).test(t)))
-      : res.text
-        .map(t => t.toLowerCase().trim())
-        .filter(Boolean)
+      ? this.normalizeStringArray(res.text)
+        .some(t => leftKeywords.some(k => this.escapeRe(t) === k))
+      : this.normalizeStringArray(res.text)
         .filter(t => [
           "general", "accessibility", "beta", "online", "graphics",
-          "audio", "controls", "input binding", "support", "match details"
+          "audio", "controls", "input", "binding", "support", "match", "details"
         ].includes(t))
-        .length >= 6;
+        .length >= 5;
 
     if (result) this.push(this._state);
     return result;
   }
 
-
+  /**
+   * Detect loading screen by black borders or loading screen text.
+   * @param blackRes 
+   * @param textRes 
+   * @returns 
+   */
   guessLoadingScreen(blackRes?: PureBlackResult, textRes?: OCRSingleResult) {
+    if (this.state.type === GameStateType.UNKNOWN) return;
+    if (this.state.type === GameStateType.MATCH) return;
+
     let result = false;
     if (blackRes?.passed) result = true;
-    if (textRes?.text.some(text => text.toLowerCase().includes("connecting to other players"))) result = true;
+
+    if (textRes) {
+      const words = this.normalizeStringArray(textRes.text);
+      if ("connecting to other players".split(" ").every(w => words.includes(w))) result = true;
+    }
+
     if (result) this.push({ type: GameStateType.LOADING });
     return result;
   }
 
+  /**
+   * Guess menu by buttons or bloodpoints.
+   * @param type 
+   * @param res 
+   * @returns 
+   */
   guessMenu(type: 'main-menu' | 'bloodpoints' | 'menu-btn', res: OCRSingleResult) {
     const getResult = () => {
       if (type === 'main-menu')
-        return (res.text.filter(line => ["play", "rift pass", "quests", "store"].some(keyword => line.toLowerCase() === keyword)).length >= 2);
+        return (this.normalizeStringArray(res.text).filter(line => ["play", "rift", "pass", "quests", "store"].some(keyword => line === keyword)).length >= 3);
       else if (type === 'menu-btn')
-        return (res.text.some(text => ["play", "continue", "cancel"].includes(text.toLowerCase())));
+        return (this.normalizeStringArray(res.text).some(text => ["play", "continue", "cancel"].includes(text)));
       else if (type === 'bloodpoints')
-        return (res.text.filter(text => text.match(/\d{3,}/g)).length >= 3);
+        return (this.normalizeStringArray(res.text).filter(text => text.match(/\d{3,}/g)).length >= 3);
     }
     const result = getResult();
     if (result) this.push({ type: GameStateType.MENU });
@@ -536,11 +595,14 @@ export class GameStateGuesser {
 
   private _lastGuessedMap: { time: number, mapFile: string, match: number } | undefined;
 
-  // ---- CHANGED: now synchronous (uses cached entries via MapResolver)
+  /**
+   * Guess map based on highest text match of existing maps.
+   * @param guessedName 
+   * @returns 
+   */
   guessMap(guessedName: string): GameStateMap | null {
-    if (!CALLOUT_SETTINGS.getValue().autoDetect) return null;
+    if (!BACKGROUND_SETTINGS.getValue().enableMapDetection) return null;
 
-    // retain your original ranking (uses MapDirectory only, for speed)
     const matches = Object.keys(MapDirectory)
       .flatMap(realm =>
         (MapDirectory as any)[realm].map((mapFile: string) => ({
@@ -572,6 +634,42 @@ export class GameStateGuesser {
     }
 
     return result;
+  }
+
+  /**
+   * Guess the current killer by their powers label.
+   * @param res 
+   * @returns 
+   */
+  guessKiller(res: OCRSingleResult) {
+    if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return null;
+
+    if (this.state.type === GameStateType.UNKNOWN) return;
+    if (this.state.type !== GameStateType.MATCH) return;
+
+    const texts = this.normalizeStringArray(res.text);
+    for (const killer of DetectableKillers) {
+      if (!killer.detect.powerIngameText) return;
+      const detectTexts = killer.detect.powerIngameText.map(t => t.toLowerCase());
+
+      if (detectTexts.some(dt => texts.includes(dt))) {
+        this.push({ ...this.state, killer });
+        return true;
+      }
+    }
+  }
+
+  /**
+   * Last resort: If nothing is detected for > 5s, assume we're in a match.
+   * @returns 
+   */
+  assumeInMatch() {
+    if (this.state.type === GameStateType.UNKNOWN) return;
+    if (this.state.type === GameStateType.MATCH) return;
+
+    if ((Date.now() - this.lastUpdate) > 10000) {
+      this.push({ type: GameStateType.MATCH });
+    }
   }
 
   // Leverage shared normalization

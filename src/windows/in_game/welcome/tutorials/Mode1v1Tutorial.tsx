@@ -11,18 +11,18 @@ const open1v1Settings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTIN
 const SettingsLink = () => <CloseTutorialConfirmation onClose={open1v1Settings}>Settings</CloseTutorialConfirmation>;
 
 export const MODE_1V1_TUTORIAL: Tutorial = {
-  title: '1v1 Mode',
+  title: '1v1 Mode ⏱️',
   content: (
     <>
       <span>Track chase time in DBD with a simple overlay.</span>
-      <span>
-        You can:
+      <>
+        <span>You can:</span>
         <ul>
           <li>Time chases as <b>Survivor</b> or <b>Killer</b></li>
-          <li>Start by <b>Crouching</b> <small>(Ctrl)</small> or <b>Swinging/Bumping</b> <small>(M1/M2)</small></li>
-          <li>Stop by <b>Emoting</b> <small>(2)</small></li>
+          <li>Start by <b>Crouching</b> — Ctrl, or <b>Swinging/Bumping</b> — M1/M2</li>
+          <li>Stop by <b>Emoting</b> — 2</li>
         </ul>
-      </span>
+      </>
     </>
   ),
   notice: <>Turn this feature on/off: <Enable1v1ModeFeature /></>,
@@ -32,21 +32,23 @@ export const MODE_1V1_TUTORIAL: Tutorial = {
       content: (
         <>
           <span>Press <SettingsHotkey name="mode_1v1" /> to enable the overlay.</span>
-          <span>Toggle timers between <b>Survivor</b> (<SettingsHotkey name="mode_1v1_switch_surv" />) and <b>Killer</b> (<SettingsHotkey name="mode_1v1_switch_kllr" />).</span>
+          <span>Toggle timers between <b>Survivor</b> — <SettingsHotkey name="mode_1v1_switch_surv" /> and <b>Killer</b> — <SettingsHotkey name="mode_1v1_switch_kllr" />.</span>
         </>
       ),
-      media: { type: 'image', src: ["./img/tutorial/timer1.jpg", "./img/tutorial/timer4.jpg"], position: 'top left' }
+      media: { type: 'image', src: ['./img/tutorial/timer1.jpg', './img/tutorial/timer4.jpg'], position: 'top left' }
     },
     {
       title: 'Start the timer',
       content: (
         <>
           <Stack>
-            <span>Survivor: <b>Crouch</b> <small>(Ctrl)</small>. Killer: <b>Swing/Bump</b> <small>(M1/M2)</small>.</span>
+            <span><b>Survivor</b> — Crouch: Ctrl. <b>Killer</b> — Swing/Bump: M1/M2.</span>
             <span>Hotkeys auto-enable only <b>in trial</b>.</span>
           </Stack>
           <Alert variant="outlined">
-            Starts only when the timer reads <b>00:00:00</b> (so you can still crouch while being in chase) and you’re <b>in a trial</b>.
+            Starts only when
+            <br />1. The timer reads <b>00:00:00</b> (so you can still crouch while in chase)
+            <br />2. You’re <b>in a trial</b>.
           </Alert>
         </>
       ),
@@ -58,10 +60,12 @@ export const MODE_1V1_TUTORIAL: Tutorial = {
       content: (
         <>
           <Stack>
-            <span><b>Emote</b> <small>(2)</small> to stop — same for Survivor and Killer.</span>
+            <span><b>Emote</b> — 2 to stop (same for Survivor and Killer).</span>
           </Stack>
           <Alert variant="outlined" severity="warning">
-            You cannot rebind this unfortunately.<br />If you need a custom key, disable this feature and bind the <b>Timer Start/Stop Hotkey</b> (next slide).
+            You cannot rebind this, unfortunately.
+            <br />
+            If you need a custom key, disable this feature and bind the <b>Timer Start/Stop Hotkey</b> (next slide).
           </Alert>
         </>
       ),
@@ -86,16 +90,14 @@ export const MODE_1V1_TUTORIAL: Tutorial = {
       content: (
         <>
           <span>Tweak the overlay to fit your setup:</span>
-          <span>
-            <ul>
-              <li>Show <b>Seconds</b> or <b>Milliseconds</b> in <SettingsLink />.</li>
-              <li>Show/Hide <b>Hotkeys</b> in <SettingsLink />.</li>
-              <li>Move the overlay via <b>Overwolf</b> (default: <b>Ctrl+Tab</b>).</li>
-            </ul>
-          </span>
+          <ul>
+            <li>Show <b>Seconds</b> or <b>Milliseconds</b> in <SettingsLink />.</li>
+            <li>Show/Hide <b>Hotkeys</b> in <SettingsLink />.</li>
+            <li>Move the overlay via <b>Overwolf</b> — default: <b>Ctrl+Tab</b>.</li>
+          </ul>
         </>
       ),
-      media: { type: 'image', src: ["./img/tutorial/timer1.jpg", "./img/tutorial/timer2.jpg", "./img/tutorial/timer3.jpg"], position: 'top left' },
+      media: { type: 'image', src: ['./img/tutorial/timer1.jpg', './img/tutorial/timer2.jpg', './img/tutorial/timer3.jpg'], position: 'top left' },
       notice: <>Visual themes are planned.</>
     }
   ]

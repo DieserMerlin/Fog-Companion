@@ -11,6 +11,7 @@ import Dialog from "@mui/material/Dialog";
 import { useTutorial } from "../welcome/AppTutorial";
 import { WELCOME_TUTORIALS } from "../welcome/tutorials/WelcomeTutorial";
 import Link from "@mui/material/Link";
+import { OverwolfLink } from "../../../utils/mui/OverwolfLink";
 
 export const AppAbout = () => {
   const [noticeText, setNoticeText] = useState('');
@@ -34,11 +35,12 @@ export const AppAbout = () => {
         <Stack spacing={1} width={'100%'}>
           <Card variant="elevation">
             <CardContent>
-              <Stack direction={'row'} alignItems={'center'} width={'100%'}>
+              <Stack direction={'row'} alignItems={'center'} width={'100%'} spacing={2}>
+                <Button variant="outlined" style={{ height: '100%' }} onClick={() => useTutorial.getState().setTutorials(WELCOME_TUTORIALS)}>Restart<br/>Tutorial</Button>
                 <Stack flexGrow={1}>
-                  <Typography variant="h5">DBD COMPanion <Chip label={'v' + pkg.version} /></Typography>
+                  <Typography variant="h5">Fog Companion <Chip label={'v' + pkg.version} /></Typography>
                   <Typography variant="caption">by Merlin</Typography>
-                  <small style={{ marginTop: 10, opacity: .6 }}>Default Callout graphics by <Link onClick={() => window.open('https://hens333.com', '_blank')}>Hens</Link>.</small>
+                  <small style={{ marginTop: 10, opacity: .6 }}>Default Callout graphics by <OverwolfLink href='https://hens333.com'>Hens</OverwolfLink>.</small>
                 </Stack>
                 <Stack alignItems={'end'} spacing={1}>
                   <small style={{ opacity: .8 }}>Like my work?</small>
@@ -70,7 +72,6 @@ export const AppAbout = () => {
                     <span>My username is <b>@DieserMerlin</b>.</span>
                   </Stack>
                 </Stack>
-                <Button variant="outlined" style={{ height: '100%' }} onClick={() => useTutorial.getState().setTutorials(WELCOME_TUTORIALS)}>Restart Tutorial</Button>
               </Stack>
             </Alert>
           </Stack>
@@ -105,6 +106,17 @@ export const AppAbout = () => {
               </Stack>
             </Alert>
           </Stack>
+          <Alert severity="warning" variant="outlined" sx={{ width: '100%' }}>
+            <Stack spacing={1}>
+              <Typography variant="overline">
+                Disclaimer
+              </Typography>
+              <Stack height={'100%'} justifyContent={'center'}>
+                <span>1. This app is not affiliated with Dead by Daylight or Behaviour Interactive in any way.</span>
+                <span>2. Using Overwolf in DBD is not known to be bannable to my best knowledge. I still won’t take any responsibility should using it lead to a ban in the game.</span>
+              </Stack>
+            </Stack>
+          </Alert>
         </Stack>
       </Stack>
     </>

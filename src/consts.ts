@@ -19,7 +19,11 @@ export const kHotkeys = {
   mode1v1resetTimers: 'mode_1v1_reset_timers',
 
   mapSwitchVar: 'map_switch_variant',
-  mapToggleBrowser: 'map_browser'
+  mapToggleBrowser: 'map_browser',
+  mapUp: 'map_browser_up',
+  mapDown: 'map_browser_down',
+  mapLeft: 'map_browser_left',
+  mapRight: 'map_browser_right',
 } as const;
 
 export const kDbdGameId = 10868;

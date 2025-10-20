@@ -373,7 +373,7 @@ export const AppCustomMapSettings = (props: { onClose: () => void }) => {
                       <Step ready conditionOrLabel={conditionStep1}>
                         <Stack>
                           <span>Create the <b>CustomMaps</b> folder.</span>
-                          <small><Link onClick={() => overwolf.utils.openWindowsExplorer('overwolf://media/screenshots/DBD COMPanion', console.log)}>Open your explorer</Link> and create this folder: <Chip size='small' label={data.customFolder.split('\\').map(part => (part === 'CustomMaps' ? <b>CustomMaps</b> : <span>{part} / </span>))} /></small>
+                          <small><Link onClick={() => overwolf.utils.openWindowsExplorer('overwolf://media/screenshots/Fog Companion', console.log)}>Open your explorer</Link> and create this folder: <Chip size='small' label={data.customFolder.split('\\').map(part => (part === 'CustomMaps' ? <b>CustomMaps</b> : <span>{part} / </span>))} /></small>
                         </Stack>
                       </Step>
                       <Step ready={conditionStep1} conditionOrLabel={conditionStep2}>

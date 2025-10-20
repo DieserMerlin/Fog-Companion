@@ -2,12 +2,12 @@
   "manifest_version": 1,
   "type": "WebApp",
   "meta": {
-    "name": "DBD COMPanion",
-    "author": "DieserMerlin",
-    "version": "0.1.2",
-    "minimum-overwolf-version": "0.160.0",
-    "description": "DBD companion app for the competitive scene.",
-    "dock_button_title": "DBD COMPanion",
+    "name": "Fog Companion",
+    "author": "Merlin",
+    "version": "1.0.0",
+    "minimum-overwolf-version": "0.282.0",
+    "description": "Companion app for the DBD competitive scene.",
+    "dock_button_title": "Fog Companion",
     "icon": "icons/IconMouseOver.png",
     "icon_gray": "icons/IconMouseNormal.png",
     "launcher_icon": "icons/desktop-icon.ico",
@@ -75,6 +75,26 @@
         "title": "Callout-Map: Open Map-Browser",
         "action-type": "custom",
         "default": "Alt+M"
+      },
+      "map_browser_up": {
+        "title": "Callout-Map Browser: Navigate Up",
+        "action-type": "custom",
+        "default": "W"
+      },
+      "map_browser_down": {
+        "title": "Callout-Map Browser: Navigate Down",
+        "action-type": "custom",
+        "default": "S"
+      },
+      "map_browser_left": {
+        "title": "Callout-Map Browser: Navigate Back",
+        "action-type": "custom",
+        "default": "A"
+      },
+      "map_browser_right": {
+        "title": "Callout-Map Browser: Navigate Forward",
+        "action-type": "custom",
+        "default": "D"
       }
     },
     "force_browser": "user",
@@ -92,12 +112,12 @@
         "transparent": true,
         "override_on_update": true,
         "size": {
-          "width": 1200,
-          "height": 700
+          "width": 1400,
+          "height": 800
         },
         "min_size": {
-          "width": 1000,
-          "height": 600
+          "width": 1200,
+          "height": 700
         },
         "resizable": true
       },
@@ -136,7 +156,7 @@
       },
       "debug": {
         "file": "debug.html",
-        "in_game_only": true,
+        "desktop_only": true,
         "transparent": true,
         "override_on_update": true,
         "size": {
