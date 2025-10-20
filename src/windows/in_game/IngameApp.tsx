@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { IngameAppTab, useIngameApp } from "./use-ingame-app";
 import { TutorialsOverlay } from "./welcome/AppTutorial";
 import { AppAbout } from "./about/AppAbout";
+import { SettingsHotkey } from "./settings/AppSettingsHotkey";
 
 const MotionBox = motion(Box);
 
@@ -62,7 +63,7 @@ function AlwaysOnTopHeader() {
           </span>
           <span style={{ flexGrow: 1 }} />
           <small style={{ marginRight: 10, opacity: 0.6 }}>
-            Press <b>{app_showhide}</b> to show/hide
+            Press <SettingsHotkey name="app_showhide" small noDelete /> to show/hide
           </small>
           <Stack direction={"row"}>
             <IconButton size="small" id="minimizeButton">

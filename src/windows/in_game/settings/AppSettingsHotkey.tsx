@@ -1,12 +1,12 @@
 import { Close, Delete } from '@mui/icons-material';
 import Chip from '@mui/material/Chip';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { kDbdGameId, kHotkeys } from '../../../consts';
 import { useHotkeys } from '../../../utils/hooks/hotkey-hook';
-import { useAppSettings } from './use-app-settings';
 import { useIngameApp } from '../use-ingame-app';
 import { useTutorial } from '../welcome/AppTutorial';
+import { useAppSettings } from './use-app-settings';
 
 type HotkeyName = typeof kHotkeys[keyof typeof kHotkeys];
 type Descriptor = { mainKey: string | null; mods: Mods; vk: number | null; label: string };
@@ -105,9 +105,9 @@ function keyEventToDescriptor(e: KeyboardEvent): Descriptor {
   return { mainKey, mods, vk, label };
 }
 
-type Props<T extends HotkeyName> = { name: T, small?: boolean };
+type Props<T extends HotkeyName> = { name: T, small?: boolean, noDelete?: boolean, startIcon?: ReactElement };
 
-export function SettingsHotkey<T extends HotkeyName>({ name, small }: Props<T>) {
+export function SettingsHotkey<T extends HotkeyName>({ name, small, noDelete, startIcon }: Props<T>) {
   const hotkeys = useHotkeys();
   const binding = hotkeys[name] || 'Unassigned';
 
@@ -242,8 +242,9 @@ export function SettingsHotkey<T extends HotkeyName>({ name, small }: Props<T>) 
     return binding || 'Unassigned';
   }, [errorMsg, reassigning, tempLabel, binding]);
 
-  const chipProps = errorMsg ? {} : reassigning
-    ? { onDelete: stopReassign as (() => void), deleteIcon: <Close /> }
+
+  const chipProps = (errorMsg || noDelete) ? {} : reassigning
+    ? ({ onDelete: stopReassign as (() => void), deleteIcon: <Close /> })
     : (!!binding && binding !== "Unassigned") ? { onDelete: handleUnassign as (() => void), deleteIcon: <Delete /> } : {};
 
   return (
@@ -255,6 +256,7 @@ export function SettingsHotkey<T extends HotkeyName>({ name, small }: Props<T>) 
       onClick={!errorMsg ? (() => (!reassigning ? startReassign() : undefined)) : undefined}
       disabled={!!errorMsg}
       sx={{ cursor: errorMsg ? 'not-allowed' : 'pointer' }}
+      icon={startIcon}
       {...chipProps}
     />
   );

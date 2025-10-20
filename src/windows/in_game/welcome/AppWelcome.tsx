@@ -79,14 +79,14 @@ const TimerCard = memo(() => {
     <OnboardingCard
       enabled={BACKGROUND_SETTINGS.hook(s => s.mode === "1v1")}
       icon={<Timer />}
-      title="1v1-Timer"
+      title="Mode: 1v1"
       onSettings={openSettings}
       onLearnMore={openTutorial}
       enableDisable={<Enable1v1ModeFeature small />}
       img=""
     >
       <Typography variant="body2">
-        Use the <b>1v1 timer</b> to track your chase time. No external app or smartphone needed!. <b>Crouch</b> or <b>Swing</b> to start the timer!
+        Use the <b>1v1 timer</b> to track your chase time. No external app or smartphone needed. <b>Crouch</b> or <b>Swing</b> to start the timer.
       </Typography>
     </OnboardingCard>
   );
@@ -98,7 +98,7 @@ const ScrimsCard = memo(() => {
     <OnboardingCard
       enabled={false}
       icon={<Group />}
-      title="Scrims/Tournaments"
+      title="Mode: Scrims/Tournaments"
       img=""
     >
       <Alert variant="outlined" severity="warning">This mode is not yet available.</Alert>
@@ -120,7 +120,7 @@ const CalloutCard = memo(() => {
   return (
     <OnboardingCard
       icon={<Map />}
-      title="Callout-Overlay"
+      title="Callout Overlay"
       onSettings={openSettings}
       onLearnMore={openTutorial}
       enableDisable={<EnableCalloutFeature small />}
@@ -134,7 +134,7 @@ const CalloutCard = memo(() => {
             <br />You can also override the default graphics with your own ones.
           </span>
           <span>
-            Open the Map Browser with <SettingsHotkey name="map_browser" />
+            Open the Map Browser with <SettingsHotkey name="map_browser" small />
             <br /><small>(See/change how to control it in the settings or Tutorial)</small>
           </span>
         </Stack>
@@ -192,7 +192,7 @@ export const AppWelcome = () => {
   return (
     <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={2}>
       <Stack>
-        <Typography variant="h5">Welcome to the companion app for competitive DBD!</Typography>
+        <Typography variant="h5">Welcome to Fog Companion for competitive Dead by Daylight</Typography>
         <Typography variant="caption" style={{ opacity: .8 }}>Learn what this app can do for you:</Typography>
       </Stack>
 

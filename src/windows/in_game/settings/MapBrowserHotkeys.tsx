@@ -3,6 +3,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import React from "react";
 import { SettingsHotkey } from "./AppSettingsHotkey";
+import { ArrowForwardIos, ArrowBackIos } from '@mui/icons-material';
 
 function KeyRow({
   leftLabel,
@@ -89,7 +90,7 @@ export const MapBrowserHotkeys = () => {
     >
       {/* Up */}
       <KeyRow leftLabel="Navigate Up —">
-        <SettingsHotkey name="map_browser_up" />
+        <SettingsHotkey name="map_browser_up" small startIcon={<ArrowForwardIos style={{ transform: 'rotate(-90deg)', opacity: .5 }} />} />
       </KeyRow>
 
       {/* Left / Right (last label on the right) */}
@@ -98,14 +99,14 @@ export const MapBrowserHotkeys = () => {
         rightLabel="— Navigate Forward"
       >
         <Stack direction="row" spacing={0.5}>
-          <SettingsHotkey name="map_browser_left" />
-          <SettingsHotkey name="map_browser_right" />
+          <SettingsHotkey name="map_browser_left" small startIcon={<ArrowBackIos style={{ opacity: .5 }} />} />
+          <SettingsHotkey name="map_browser_right" small startIcon={<ArrowForwardIos style={{ opacity: .5 }} />} />
         </Stack>
       </KeyRow>
 
       {/* Down */}
       <KeyRow rightLabel="— Navigate Down">
-        <SettingsHotkey name="map_browser_down" />
+        <SettingsHotkey name="map_browser_down" small startIcon={<ArrowForwardIos style={{ transform: 'rotate(90deg)', opacity: .5 }} />} />
       </KeyRow>
     </Box>
   );
