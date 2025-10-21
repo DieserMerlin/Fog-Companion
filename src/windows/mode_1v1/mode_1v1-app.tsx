@@ -132,7 +132,7 @@ const Render1v1Timer = (props: {
   );
 };
 
-const defaultStyles = `
+export const DEFAULT_1V1_TIMER_STYLES = `
 #mode_1v1_overlay {
   position: absolute;
   z-index: 9999;
@@ -226,7 +226,7 @@ const defaultStyles = `
 }
 `;
 
-export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void }) => {
+export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void, customCss?: string }) => {
   const {
     customCss,
     selected,
@@ -281,8 +281,8 @@ export const Render1v1Overlay = (props: { onApi: (api: Mode1v1TimerAPI) => void 
 
   return (
     <>
-      <style>{defaultStyles}</style>
-      <style>{customCss}</style>
+      <style>{DEFAULT_1V1_TIMER_STYLES}</style>
+      <style>{props.customCss || customCss || ''}</style>
       <div id="mode_1v1_overlay">
         <div id="mode_1v1_container">
           {/* Left hotkeys column */}

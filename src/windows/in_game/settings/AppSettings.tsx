@@ -19,6 +19,7 @@ import { SettingsHotkey } from './AppSettingsHotkey';
 import { Enable1v1ModeFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature } from './EnableDisableFeatures';
 import { AppSettingsSection, useAppSettings } from './use-app-settings';
 import { MapBrowserHotkeys } from './MapBrowserHotkeys';
+import { AppSettings1v1ThemeEditor } from './AppSettings1v1ThemeEditor';
 
 /** ---------- Primitives ---------- */
 
@@ -219,6 +220,8 @@ const Mode1v1Settings = memo(() => {
     BACKGROUND_SETTINGS.update({ enableKillerDetection: v });
   }, []);
 
+  const [editorOpen, setEditorOpen] = useState(false);
+
   return (
     <>
       <Stack p={1}>
@@ -287,6 +290,16 @@ const Mode1v1Settings = memo(() => {
       <Stack p={1}>
         <Typography variant="overline">Display settings</Typography>
       </Stack>
+
+      <Dialog fullScreen open={editorOpen} onClose={() => setEditorOpen(false)}>
+        <AppSettings1v1ThemeEditor />
+      </Dialog>
+      <SettingsOption
+        label="CSS Editor"
+        description="Create your own visual theme for the 1v1 overlay."
+      >
+        <Button onClick={() => setEditorOpen(true)}>Open CSS Editor</Button>
+      </SettingsOption>
 
       <SettingsOption
         label="Display Milliseconds"
