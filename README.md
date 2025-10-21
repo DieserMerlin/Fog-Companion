@@ -2,19 +2,22 @@
 
 ## About
 
-Fog Companion is an Overwolf application for the game Dead by Daylight (DBD), designed to assist competitive players. It provides various in-game tools and features to enhance the gameplay experience.
+Fog Companion is an Overwolf application for the game Dead by Daylight (DBD), designed to assist competitive players. It provides various in-game tools and features to enhance the comp gameplay loop.
 
-The application is built with React, TypeScript, and Vite, and it leverages the Overwolf platform to provide in-game overlays and interact with game events.
+The application is built with React, TypeScript, and Vite, and it leverages the Overwolf platform to provide in-game overlays and integration with the game.
 
 ## Features
 
-- **Map Callouts:** Displays map images with callouts to help with team communication.
+- **Map Callouts:** Displays map images for callouts to help with team communication.
+  - **Map Browser:** An in-game browser to view all available maps and their variations.
 - **Game Modes:**
-  - **1v1 Mode:** A special mode for 1v1 matches, with dedicated timers and controls.
-  - **Scrim/Tournament Mode:** A mode tailored for scrims and tournaments.
-- **In-Game Timers:** Timers to track various in-game events.
+  - **1v1 Mode:** A special mode for 1v1 matches, with dedicated timers and controls. Ingame without the need for an external app or smartphone. Start/End chase with common gestures (Crouch, Swing, Bump, Emote).
+  - **Scrim/Tournament Mode:** A mode tailored for scrims and tournaments. Not yet available.
+- **Smart-Features:**
+  - Leverages screenshots and OCR to detect the current state of the game.
+  - Lock/Unlock gestures to start/stop chase by detecting Menu/Ingame.
+  - Detect killers starting 1v1 chase with M2 instead of M1 (Blight, Nurse).
 - **Customizable Hotkeys:** A rich set of customizable hotkeys to control the application's features without leaving the game.
-- **Map Browser:** An in-game browser to view all available maps and their variations.
 
 ## Tech Stack
 
@@ -30,7 +33,7 @@ The application is built with React, TypeScript, and Vite, and it leverages the 
 
 The application is a multi-window Overwolf app with the following windows:
 
-- `background`: A background window that runs persistently.
+- `background`: A background window that runs persistently. From here all the OCR logic is called.
 - `in_game`: The main window of the application.
 - `mode_1v1`: A window for the "1v1" mode.
 - `callouts`: A window for displaying map callouts.
@@ -50,19 +53,15 @@ The map images are located in the `public/img/maps` directory. A script (`tools/
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/DieserMerlin/Fog-Companion.git
     ```
 2.  **Install dependencies:**
     ```bash
     yarn install
     ```
-    or
-    ```bash
-    npm install
-    ```
 3.  **Run the development server:**
     ```bash
-    npm run dev
+    yarn dev
     ```
     This will build the application and watch for file changes.
 
@@ -76,7 +75,7 @@ The map images are located in the `public/img/maps` directory. A script (`tools/
 To create a production build, run:
 
 ```bash
-npm run build:prod
+yarn build:prod
 ```
 
 This will create a production-ready build in the `dist` folder.
@@ -86,7 +85,7 @@ This will create a production-ready build in the `dist` folder.
 To create an Overwolf package (`.opk`), run:
 
 ```bash
-npm run build:opk
+yarn build:opk
 ```
 
 This will create an `.opk` file in the `dist` folder, which can be used to distribute the application.
