@@ -30,34 +30,30 @@ const OnboardingCard = memo((
       <Card
         style={{ width: '100%', height: '100%' }}
       >
-        <CardContent style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+        <CardContent style={{ overflow: 'hidden' }}>
           <Stack height="100%" width="100%" spacing={1}>
-            <Stack spacing={1} width="100%" flexGrow={1} justifyContent="center">
-              <Stack direction="row" alignItems="center" spacing={1}>
-                {props.icon}
-                <Typography variant="h6">{props.title}</Typography>
-              </Stack>
-              {props.children}
+            <Stack direction="row" spacing={1} width="100%" alignItems={'center'}>
+              {props.icon}
+              <Typography variant="h6">{props.title}</Typography>
+              <span style={{ flexGrow: 1 }} />
+              <span>{props.enableDisable}</span>
             </Stack>
-            <Stack direction="row" spacing={1} width="100%">
-              {props.onLearnMore &&
-                <Button variant="outlined" color="info" startIcon={<Help />} onClick={props.onLearnMore}>
-                  Learn how to use
-                </Button>}
-              {props.onSettings &&
-                <Button variant="outlined" startIcon={<Settings />} onClick={props.onSettings}>
-                  Open Settings
-                </Button>}
+            <Stack spacing={1} width="100%">
+              {props.children}
+              <Stack direction={'row'} spacing={1}>
+                {props.onLearnMore &&
+                  <Button size="small" variant="outlined" color="info" startIcon={<Help />} onClick={props.onLearnMore}>
+                    Learn more
+                  </Button>}
+                {props.onSettings &&
+                  <Button size="small" variant="outlined" startIcon={<Settings />} onClick={props.onSettings}>
+                    Settings
+                  </Button>}
+              </Stack>
             </Stack>
           </Stack>
         </CardContent>
       </Card>
-
-      {!!props.enableDisable && (
-        <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
-          {props.enableDisable}
-        </Box>
-      )}
     </Grid>
   );
 });
@@ -153,28 +149,28 @@ const SmartFeaturesCard = memo(() => {
       enabled={BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures)}
       img=""
     >
-      <Stack spacing={2}>
-        <Typography variant="body2">
+      <Typography variant="body2">
+        <Stack spacing={1}>
           <small style={{ opacity: .6 }}>
             Allows the app to detect the game state using screenshots.
             Disable this if you notice problems with your performance.
           </small>
-        </Typography>
-        <Stack direction={'row'} alignItems={'center'}>
-          <Stack flexGrow={1}>
-            <span>Auto-Detect current map</span>
-            <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
+          <Stack direction={'row'} alignItems={'center'}>
+            <Stack flexGrow={1}>
+              <span>Auto-Detect current map</span>
+              <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
+            </Stack>
+            <EnableMapDetectionFeature />
           </Stack>
-          <EnableMapDetectionFeature />
-        </Stack>
-        <Stack direction={'row'} alignItems={'center'}>
-          <Stack flexGrow={1}>
-            <span>Auto-Detect M2 killers</span>
-            <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
+          <Stack direction={'row'} alignItems={'center'}>
+            <Stack flexGrow={1}>
+              <span>Auto-Detect M2 killers</span>
+              <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
+            </Stack>
+            <EnableKillerDetectionFeature />
           </Stack>
-          <EnableKillerDetectionFeature />
         </Stack>
-      </Stack>
+      </Typography>
     </OnboardingCard>
   )
 })
@@ -196,7 +192,7 @@ export const AppWelcome = () => {
         <Typography variant="caption" style={{ opacity: .8 }}>Learn what this app can do for you:</Typography>
       </Stack>
 
-      <Grid container flexGrow={1} spacing={1} width="90%">
+      <Grid container flexGrow={1} spacing={1} width="100%">
         <TimerCard />
         <ScrimsCard />
         <CalloutCard />

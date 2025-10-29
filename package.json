@@ -6,7 +6,7 @@
   "scripts": {
     "generate-map-dir": "npx ts-node tools/generate-map-directory.ts",
     "build": "npm run generate-map-dir && vite build",
-    "dev": "npm run build -- --watch",
+    "dev": "cross-env NODE_ENV=development npm run build -- --watch",
     "build:prod": "cross-env NODE_ENV=production npm run build",
     "build:opk": "cross-env MAKE_OPK=true npm run build:prod"
   },
