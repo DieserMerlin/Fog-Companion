@@ -24,6 +24,7 @@ function flattenHtmlPaths(): Plugin {
 export default defineConfig({
   logLevel: 'info',
   publicDir: r('public'),
+  mode: process.env.NODE_ENV,
   build: {
     outDir: r('dist'),
     emptyOutDir: true,

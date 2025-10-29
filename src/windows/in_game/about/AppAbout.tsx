@@ -36,7 +36,7 @@ export const AppAbout = () => {
           <Card variant="elevation">
             <CardContent>
               <Stack direction={'row'} alignItems={'center'} width={'100%'} spacing={2}>
-                <Button variant="outlined" style={{ height: '100%' }} onClick={() => useTutorial.getState().setTutorials(WELCOME_TUTORIALS)}>Restart<br/>Tutorial</Button>
+                <Button variant="outlined" style={{ height: '100%' }} onClick={() => useTutorial.getState().setTutorials(WELCOME_TUTORIALS)}>Restart<br />Tutorial</Button>
                 <Stack flexGrow={1}>
                   <Typography variant="h5">Fog Companion <Chip label={'v' + pkg.version} /></Typography>
                   <Typography variant="caption">by Merlin</Typography>
@@ -94,17 +94,6 @@ export const AppAbout = () => {
                 </Button>
               </Stack>
             </Alert>
-            <Alert severity="error" variant="outlined" sx={{ width: '100%' }}>
-              <Stack spacing={1}>
-                <Typography variant="overline">
-                  Do you have contact to Hens?
-                </Typography>
-                <Stack height={'100%'} justifyContent={'center'}>
-                  <span>I tried contacting him but he ghosted me. 💀</span>
-                  <span>If we can get his attention, maybe he will approve to use his callouts without copyright notice!</span>
-                </Stack>
-              </Stack>
-            </Alert>
           </Stack>
           <Alert severity="warning" variant="outlined" sx={{ width: '100%' }}>
             <Stack spacing={1}>
@@ -112,13 +101,28 @@ export const AppAbout = () => {
                 Disclaimer
               </Typography>
               <Stack height={'100%'} justifyContent={'center'}>
-                <span>1. This app is not affiliated with Dead by Daylight or Behaviour Interactive in any way.</span>
-                <span>2. Using Overwolf in DBD is not known to be bannable to my best knowledge. I still won’t take any responsibility should using it lead to a ban in the game.</span>
+                <span>
+                  1. This application is an independent, fan-made project and is
+                  not affiliated with, endorsed by, or sponsored by <b>Behaviour Interactive</b> or <b>Dead by Daylight </b>
+                  in any way.
+                </span>
+                <span>
+                  2. To the best of my knowledge,
+                  <b> using Overwolf with Dead by Daylight has not been shown to result in bans</b>.
+                  However, I <b>cannot guarantee</b> that this will remain the case, and I
+                  <b> accept no responsibility or liability</b> should the use of this application or Overwolf
+                  lead to a ban, suspension, or any other account-related issue.
+                </span>
+                <span>
+                  3. This overlay is <b>intended for informational and competitive purposes only</b>.
+                  It does <b>not modify gameplay</b>, <b>access restricted game data</b>, or
+                  <b> provide unfair advantages</b>.
+                </span>
               </Stack>
             </Stack>
           </Alert>
-        </Stack>
-      </Stack>
+        </Stack >
+      </Stack >
     </>
   );
 }

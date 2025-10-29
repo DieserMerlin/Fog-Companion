@@ -15,8 +15,11 @@
   },
   "permissions": [
     "Hotkeys",
-    "GameInfo",
-    "FileSystem"
+    "FileSystem",
+    "Extensions",
+    "Streaming",
+    "Profile",
+    "GameInfo"
   ],
   "data": {
     "start_window": "background",
@@ -106,7 +109,6 @@
       },
       "in_game": {
         "file": "in_game.html",
-        "in_game_only": false,
         "focus_game_takeover": "ReleaseOnHidden",
         "focus_game_takeover_release_hotkey": "app_showhide",
         "transparent": true,
