@@ -1,5 +1,6 @@
 export enum kWindowNames {
-  inGame = 'in_game',
+  mainInGame = 'main_in_game',
+  mainDesktop = 'main_desktop',
   mode_1v1 = 'mode_1v1',
   callouts = 'callouts',
   debug = 'debug',

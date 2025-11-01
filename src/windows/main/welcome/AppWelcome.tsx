@@ -1,16 +1,17 @@
 import { Group, Help, Map, Settings, Timer, TipsAndUpdates } from "@mui/icons-material";
-import { Alert, Box, Button, Card, CardContent, Checkbox, FormControlLabel, Grid, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Grid, Paper, Stack, Typography } from "@mui/material";
 import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
 
 import { INGAME_SETTINGS } from "../in_game-settings";
 import { AppSettingsSection, useAppSettings } from "../settings/use-app-settings";
-import { IngameAppTab, useIngameApp } from "../use-ingame-app";
+import { MainAppTab, useMainApp } from "../use-main-app";
 import { useTutorial } from "./AppTutorial";
 import { MODE_1V1_TUTORIAL } from "./tutorials/Mode1v1Tutorial";
 import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
 import { CALLOUT_TUTORIAL } from "./tutorials/CalloutTutorial";
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { SettingsHotkey } from "../settings/AppSettingsHotkey";
+import { AppDetectionDisplay } from "./AppDetectionDisplay";
 
 /** ---------------- Primitives ---------------- */
 
@@ -28,9 +29,9 @@ const OnboardingCard = memo((
   return (
     <Grid size={{ xs: 6 }} sx={{ flexGrow: 1, position: 'relative', opacity: props.enabled ? 1 : 0.5 }}>
       <Card
-        style={{ width: '100%', height: '100%' }}
+        sx={{ width: '100%', height: '100%' }}
       >
-        <CardContent style={{ overflow: 'hidden' }}>
+        <CardContent sx={t => ({ pb: `${t.spacing(2)} !important`, overflow: 'hidden', height: '100%' })}>
           <Stack height="100%" width="100%" spacing={1}>
             <Stack direction="row" spacing={1} width="100%" alignItems={'center'}>
               {props.icon}
@@ -38,8 +39,10 @@ const OnboardingCard = memo((
               <span style={{ flexGrow: 1 }} />
               <span>{props.enableDisable}</span>
             </Stack>
-            <Stack spacing={1} width="100%">
+            <Stack spacing={1} width="100%" flexGrow={1} overflow={'auto'}>
               {props.children}
+            </Stack>
+            {!!props.onLearnMore && !!props.onSettings && (
               <Stack direction={'row'} spacing={1}>
                 {props.onLearnMore &&
                   <Button size="small" variant="outlined" color="info" startIcon={<Help />} onClick={props.onLearnMore}>
@@ -50,7 +53,7 @@ const OnboardingCard = memo((
                     Settings
                   </Button>}
               </Stack>
-            </Stack>
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -63,7 +66,7 @@ OnboardingCard.displayName = 'OnboardingCard';
 
 const TimerCard = memo(() => {
   const openSettings = useCallback(() => {
-    useIngameApp.setState({ tab: IngameAppTab.SETTINGS });
+    useMainApp.setState({ tab: MainAppTab.SETTINGS });
     useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 });
   }, []);
 
@@ -83,6 +86,9 @@ const TimerCard = memo(() => {
     >
       <Typography variant="body2">
         Use the <b>1v1 timer</b> to track your chase time. No external app or smartphone needed. <b>Crouch</b> or <b>Swing</b> to start the timer.
+      </Typography>
+      <Typography variant="body2">
+        Move the overlay around on the overwolf exclusive focus (usually <Chip size="small" label="Ctrl+Tab" />).
       </Typography>
     </OnboardingCard>
   );
@@ -105,7 +111,7 @@ ScrimsCard.displayName = 'ScrimsCard';
 
 const CalloutCard = memo(() => {
   const openSettings = useCallback(() => {
-    useIngameApp.setState({ tab: IngameAppTab.SETTINGS });
+    useMainApp.setState({ tab: MainAppTab.SETTINGS });
     useAppSettings.setState({ expand: AppSettingsSection.CALLOUT });
   }, []);
 
@@ -149,28 +155,28 @@ const SmartFeaturesCard = memo(() => {
       enabled={BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures)}
       img=""
     >
-      <Typography variant="body2">
-        <Stack spacing={1}>
-          <small style={{ opacity: .6 }}>
-            Allows the app to detect the game state using screenshots.
-            Disable this if you notice problems with your performance.
-          </small>
-          <Stack direction={'row'} alignItems={'center'}>
-            <Stack flexGrow={1}>
-              <span>Auto-Detect current map</span>
-              <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
-            </Stack>
-            <EnableMapDetectionFeature />
+      <Stack spacing={1} height={'100%'}>
+        <small style={{ opacity: .6 }}>
+          Allows the app to detect the game state using screenshots.
+          Disable this if you notice problems with your performance.
+        </small>
+        <Stack direction={'row'} alignItems={'center'}>
+          <Stack flexGrow={1}>
+            <span>Auto-Detect current map</span>
+            <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
           </Stack>
-          <Stack direction={'row'} alignItems={'center'}>
-            <Stack flexGrow={1}>
-              <span>Auto-Detect M2 killers</span>
-              <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
-            </Stack>
-            <EnableKillerDetectionFeature />
-          </Stack>
+          <EnableMapDetectionFeature />
         </Stack>
-      </Typography>
+        <Stack direction={'row'} alignItems={'center'}>
+          <Stack flexGrow={1}>
+            <span>Auto-Detect M2 killers</span>
+            <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
+          </Stack>
+          <EnableKillerDetectionFeature />
+        </Stack>
+        <span style={{ flexGrow: 1 }} />
+        <AppDetectionDisplay />
+      </Stack>
     </OnboardingCard>
   )
 })
@@ -180,13 +186,20 @@ const SmartFeaturesCard = memo(() => {
 export const AppWelcome = () => {
   // Localize subscription so only this component re-renders when this value changes
   const openOnStartup = INGAME_SETTINGS.hook(s => s.openOnStartup);
+  const showInGame = INGAME_SETTINGS.hook(s => s.showInGame);
 
   const handleOpenOnStartup = useCallback((_: unknown, v: boolean) => {
     INGAME_SETTINGS.update({ openOnStartup: v });
   }, []);
 
+  const handleShowInGame = useCallback((_: unknown, v: boolean) => {
+    INGAME_SETTINGS.update({ showInGame: v });
+  }, []);
+
+  const close = () => overwolf.windows.getMainWindow().close();
+
   return (
-    <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={2}>
+    <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={3}>
       <Stack>
         <Typography variant="h5">Welcome to Fog Companion for competitive Dead by Daylight</Typography>
         <Typography variant="caption" style={{ opacity: .8 }}>Learn what this app can do for you:</Typography>
@@ -199,11 +212,16 @@ export const AppWelcome = () => {
         <SmartFeaturesCard />
       </Grid>
 
-      <FormControlLabel
-        style={{ opacity: .75 }}
-        label="Open this window with DBD"
-        control={<Checkbox checked={openOnStartup} onChange={handleOpenOnStartup} />}
-      />
-    </Stack>
+      <Stack direction={'row'} spacing={4} style={{ opacity: .75 }} alignItems={"center"}>
+        <FormControlLabel
+          label={<Stack><span>Use this window in-game.</span><small>Disable for second-screen use.</small></Stack>}
+          control={<Checkbox checked={showInGame} onChange={handleShowInGame} size="small" />}
+        />
+        <FormControlLabel
+          label={<Stack><span>Open this window with DBD</span><small>Disable to only open manually.</small></Stack>}
+          control={<Checkbox checked={openOnStartup} onChange={handleOpenOnStartup} size="small" />}
+        />
+      </Stack>
+    </Stack >
   );
 };

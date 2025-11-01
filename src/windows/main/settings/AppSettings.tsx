@@ -17,9 +17,8 @@ import { MODE_1V1_SETTINGS } from '../../mode_1v1/mode_1v1-settings';
 import { AppCustomMapSettings } from "./AppCustomMapSettings";
 import { SettingsHotkey } from './AppSettingsHotkey';
 import { Enable1v1ModeFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature } from './EnableDisableFeatures';
-import { AppSettingsSection, useAppSettings } from './use-app-settings';
 import { MapBrowserHotkeys } from './MapBrowserHotkeys';
-import { AppSettings1v1ThemeEditor } from './AppSettings1v1ThemeEditor';
+import { AppSettingsSection, useAppSettings } from './use-app-settings';
 
 /** ---------- Primitives ---------- */
 
@@ -74,7 +73,7 @@ const SettingsOption = memo((
 ) => {
   return (
     <Paper style={props.disabled && { opacity: .6, pointerEvents: 'none' } || undefined}>
-      <Stack spacing={1} p={2} direction="row" alignItems="center">
+      <Stack spacing={1} py={1} px={1.5} direction="row" alignItems="center">
         <Stack minWidth="40%" maxWidth="40%">
           <Typography variant="body1" component="div">
             {props.label}
@@ -291,16 +290,6 @@ const Mode1v1Settings = memo(() => {
         <Typography variant="overline">Display settings</Typography>
       </Stack>
 
-      <Dialog fullScreen open={editorOpen} onClose={() => setEditorOpen(false)}>
-        <AppSettings1v1ThemeEditor />
-      </Dialog>
-      <SettingsOption
-        label="CSS Editor"
-        description="Create your own visual theme for the 1v1 overlay."
-      >
-        <Button onClick={() => setEditorOpen(true)}>Open CSS Editor</Button>
-      </SettingsOption>
-
       <SettingsOption
         label="Display Milliseconds"
         description={<>Timer will be shown as <b>MM:SS:mm</b> if enabled and as <b>MM:SS</b> otherwise.</>}
@@ -329,7 +318,7 @@ export const AppSettings = () => {
   );
 
   return (
-    <Stack>
+    <Stack pb={2}>
       <SettingsSection
         expanded={expand === AppSettingsSection.CALLOUT}
         onExpand={handleExpanded(0)}

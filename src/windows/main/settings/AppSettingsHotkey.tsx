@@ -4,7 +4,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 
 import { create } from 'zustand';
 import { kDbdGameId, kHotkeys } from '../../../consts';
 import { useHotkeys } from '../../../utils/hooks/hotkey-hook';
-import { useIngameApp } from '../use-ingame-app';
+import { useMainApp } from '../use-main-app';
 import { useTutorial } from '../welcome/AppTutorial';
 import { useAppSettings } from './use-app-settings';
 
@@ -24,7 +24,7 @@ const useHotkeyEditStore = create<EditStore>((set) => ({
 }));
 
 useAppSettings.subscribe(state => useHotkeyEditStore.getState().stop());
-useIngameApp.subscribe(state => useHotkeyEditStore.getState().stop());
+useMainApp.subscribe(state => useHotkeyEditStore.getState().stop());
 useTutorial.subscribe(state => useHotkeyEditStore.getState().stop());
 
 type Mods = { ctrl: boolean; alt: boolean; shift: boolean };

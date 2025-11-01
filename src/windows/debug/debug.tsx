@@ -2,7 +2,7 @@
 import { createRoot } from "react-dom/client";
 import { AppWindow } from "../../AppWindow";
 import { kWindowNames } from "../../consts";
-import { GameStateGuesser } from "../../game_state/GameState";
+import { GameStateGuesser, GameStateType } from "../../game_state/GameState";
 import { OcrAreasResult, OCRSingleResult, PureBlackResult } from "../../utils/ocr/area-ocr";
 import { BaseWindow } from "../../utils/window/AppWindow";
 import Stack from "@mui/material/Stack";
@@ -11,6 +11,13 @@ import { create } from "zustand";
 import Box from "@mui/material/Box";
 import { useLayoutEffect, useRef } from "react";
 import { useGameState } from "../../utils/hooks/gamestate-hook";
+import { BACKGROUND_SETTINGS } from "../background/background-settings";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import IconButton from "@mui/material/IconButton";
+import { Close } from "@mui/icons-material";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
 
 const cache = overwolf.windows.getMainWindow().cache;
 const canvas: any = (cache.canvas = ({}));
@@ -164,21 +171,40 @@ const AppState = () => {
   </Grid>;
 }
 
-const App = () => (
-  <BaseWindow resizable fullWindowDrag>
-    <pre id="output"></pre>
-    <Grid container spacing={1} width={'100%'} height={'100%'}>
-      <CanvasDisplay id="map" />
-      <CanvasDisplay id="main-menu" />
-      <CanvasDisplay id="menu-btn" />
-      <CanvasDisplay id="bloodpoints" />
-      <CanvasDisplay id="loading-screen" />
-      <CanvasDisplay id="loading-text" />
-      <CanvasDisplay id="settings" />
-      <AppState />
-    </Grid>
-  </BaseWindow>
-);
+const App = () => {
+  const breakPoint = BACKGROUND_SETTINGS.hook(s => s.ocrDebugBreakOn);
+  const setBreakPoint = (type: GameStateType | 'none') => BACKGROUND_SETTINGS.update({ ocrDebugBreakOn: type === 'none' ? null : type });
+
+  return (
+    <BaseWindow resizable>
+      <Stack direction={'row'} p={1} width={'100vw'} spacing={1} sx={t => ({ bgcolor: t.palette.background.paper })} alignItems={'center'} id='header'>
+        <span style={{ flexGrow: 1 }}>OCR DEBUG</span>
+        <IconButton onClick={() => BACKGROUND_SETTINGS.update({ enableOcrDebug: false })}><Close /></IconButton>
+      </Stack>
+      <Stack spacing={1} p={2}>
+        <FormControl fullWidth>
+          <InputLabel id="break-on-label">Break on</InputLabel>
+          <Select<GameStateType | 'none'> value={breakPoint || 'none'} onChange={(e) => setBreakPoint(e.target.value)} label="Break on" labelId="break-on-label">
+
+            <MenuItem value={'none'}>None</MenuItem>
+            {Object.values(GameStateType).map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <pre id="output"></pre>
+        <Grid container spacing={1} width={'100%'} height={'100%'}>
+          <CanvasDisplay id="map" />
+          <CanvasDisplay id="main-menu" />
+          <CanvasDisplay id="menu-btn" />
+          <CanvasDisplay id="bloodpoints" />
+          <CanvasDisplay id="loading-screen" />
+          <CanvasDisplay id="loading-text" />
+          <CanvasDisplay id="settings" />
+          <AppState />
+        </Grid>
+      </Stack>
+    </BaseWindow>
+  );
+}
 
 const root = createRoot(document.getElementById('root')!);
 root.render(<App />);

@@ -12,6 +12,19 @@ export enum GameStateType {
   MATCH = 'MATCH',
   LOADING = 'LOADING',
   UNKNOWN = 'UNKNOWN',
+  CLOSED = 'CLOSED',
+}
+
+export enum DetectionCause {
+  MAIN_MENU_TEXT = 'MAIN_MENU_TEXT',
+  MENU_BUTTON_TEXT = 'MENU_BUTTON_TEXT',
+  BLOODPOINTS_TEXT = 'BLOODPOINTS_TEXT',
+  LOADING_TEXT = 'LOADING_TEXT',
+  BLACK_EDGES = 'BLACK_EDGES',
+  MAP_TEXT = 'MAP_TEXT',
+  SETTINGS_TEXT = 'SETTINGS_TEXT',
+  KILLER_POWER_TEXT = 'KILLER_POWER_TEXT',
+  FALLBACK = 'FALLBACK',
 }
 
 export type DetectableKiller = {
@@ -32,6 +45,7 @@ export type GameState = {
   type: GameStateType;
   map?: GameStateMap;
   killer?: DetectableKiller;
+  detectedBy?: DetectionCause;
 };
 
 const isEqual = (a: any, b: any) => a === b;
@@ -46,7 +60,12 @@ export class GameStateGuesser {
     MapResolver.Instance().init().catch(() => { });
     BACKGROUND_SETTINGS.hook.subscribe(() => {
       this.push({ ...this.state });
-    })
+    });
+    overwolf.windows.getMainWindow().bus.on('game-info', (gi) => {
+      const running = !!gi?.isRunning;
+      if (running && this._state.type === GameStateType.CLOSED) this.onGameOpened();
+      if (!running) this.onGameClosed();
+    });
   }
 
   private _state: GameState = { type: GameStateType.UNKNOWN };
@@ -113,7 +132,7 @@ export class GameStateGuesser {
         ].includes(t))
         .length >= 5;
 
-    if (result) this.push(this._state);
+    if (result) this.push({ detectedBy: DetectionCause.SETTINGS_TEXT, ...this._state });
     return result;
   }
 
@@ -127,15 +146,14 @@ export class GameStateGuesser {
     if (this.state.type === GameStateType.UNKNOWN) return;
     if (this.state.type === GameStateType.MATCH) return;
 
-    let result = false;
-    if (blackRes?.passed) result = true;
+    let result: DetectionCause;
+    if (blackRes?.passed) result = DetectionCause.BLACK_EDGES;
 
     if (textRes) {
-      const words = this.normalizeStringArray(textRes.text);
-      if ("connecting to other players".split(" ").every(w => words.includes(w))) result = true;
+      if (textRes.text.some(text => this.calculateTextMatch("connecting to other players", text) >= 0.9)) result = DetectionCause.LOADING_TEXT;
     }
 
-    if (result) this.push({ type: GameStateType.LOADING });
+    if (result) this.push({ type: GameStateType.LOADING, detectedBy: result });
     return result;
   }
 
@@ -148,14 +166,14 @@ export class GameStateGuesser {
   guessMenu(type: 'main-menu' | 'bloodpoints' | 'menu-btn', res: OCRSingleResult) {
     const getResult = () => {
       if (type === 'main-menu')
-        return (this.normalizeStringArray(res.text).filter(line => ["play", "rift", "pass", "quests", "store"].some(keyword => line === keyword)).length >= 3);
-      else if (type === 'menu-btn')
-        return (this.normalizeStringArray(res.text).some(text => ["play", "continue", "cancel"].includes(text)));
+        return (this.normalizeStringArray(res.text).filter(line => ["play", "rift", "pass", "quests", "store"].some(keyword => line === keyword)).length >= 3) && DetectionCause.MAIN_MENU_TEXT;
+      else if (type === 'menu-btn' && this._state.type !== GameStateType.UNKNOWN) // Edge case: "play" in game-start disclaimer text.
+        return (this.normalizeStringArray(res.text).some(text => ["play", "continue", "cancel"].includes(text))) && DetectionCause.MENU_BUTTON_TEXT;
       else if (type === 'bloodpoints')
-        return (this.normalizeStringArray(res.text).filter(text => text.match(/\d{3,}/g)).length >= 3);
+        return (this.normalizeStringArray(res.text).filter(text => text.match(/\d{3,}/g)).length >= 3) && DetectionCause.BLOODPOINTS_TEXT;
     }
     const result = getResult();
-    if (result) this.push({ type: GameStateType.MENU });
+    if (result) this.push({ type: GameStateType.MENU, detectedBy: result });
     return result;
   }
 
@@ -174,7 +192,7 @@ export class GameStateGuesser {
         (MapDirectory as any)[realm].map((mapFile: string) => ({
           realm,
           mapFile,
-          match: this.calculateMapNameMatch(mapFile, guessedName),
+          match: this.calculateTextMatch(mapFile, guessedName),
         }))
       )
       .sort((a, b) => b.match - a.match);
@@ -192,7 +210,7 @@ export class GameStateGuesser {
     const result = MapResolver.Instance().makeMapByName(highestMatch.mapFile);
 
     if (result) {
-      this.push({ type: GameStateType.MATCH, map: result });
+      this.push({ type: GameStateType.MATCH, map: result, detectedBy: DetectionCause.MAP_TEXT });
     }
 
     return result;
@@ -215,7 +233,7 @@ export class GameStateGuesser {
       const detectTexts = killer.detect.powerIngameText.map(t => t.toLowerCase());
 
       if (detectTexts.some(dt => texts.includes(dt))) {
-        this.push({ ...this.state, killer });
+        this.push({ ...this.state, killer, detectedBy: DetectionCause.KILLER_POWER_TEXT });
         return true;
       }
     }
@@ -230,12 +248,26 @@ export class GameStateGuesser {
     if (this.state.type === GameStateType.MATCH) return;
 
     if ((Date.now() - this.lastUpdate) > 10000) {
-      this.push({ type: GameStateType.MATCH });
+      this.push({ type: GameStateType.MATCH, detectedBy: DetectionCause.FALLBACK });
     }
   }
 
+  /**
+   * Inform when game got closed.
+   */
+  onGameClosed() {
+    this.push({ type: GameStateType.CLOSED });
+  }
+
+  /**
+   * Inform when game got opened.
+   */
+  onGameOpened() {
+    this.push({ type: GameStateType.UNKNOWN });
+  }
+
   // Leverage shared normalization
-  calculateMapNameMatch(original: string, test: string) {
+  calculateTextMatch(original: string, test: string) {
     const a = MapResolver.Instance().normalizeForMatch(original);
     const b = MapResolver.Instance().normalizeForMatch(test);
 

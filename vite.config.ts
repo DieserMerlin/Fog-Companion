@@ -38,7 +38,7 @@ export default defineConfig({
       },
       input: {
         background: r('src/windows/background/background.html'),
-        in_game: r('src/windows/in_game/in_game.html'),
+        main: r('src/windows/main/main.html'),
         mode_1v1: r('src/windows/mode_1v1/mode_1v1.html'),
         callouts: r('src/windows/callouts/callouts.html'),
         debug: r('src/windows/debug/debug.html'),

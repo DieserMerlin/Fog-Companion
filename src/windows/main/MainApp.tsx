@@ -1,16 +1,15 @@
-import { Close, Minimize } from "@mui/icons-material";
-import { TabContext, TabList, useTabContext } from "@mui/lab";
+import { Close, Home, Info, Minimize, Settings } from "@mui/icons-material";
+import { TabContext, TabList } from "@mui/lab";
 import { Box, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Typography } from "@mui/material";
-import { memo, PropsWithChildren, useEffect, useRef, useState } from "react";
-import { useHotkeys } from "../../utils/hooks/hotkey-hook";
-import { BaseWindow } from "../../utils/window/AppWindow";
-import { AppSettings } from "./settings/AppSettings";
-import { AppWelcome } from "./welcome/AppWelcome";
 import { AnimatePresence, motion } from "motion/react";
-import { IngameAppTab, useIngameApp } from "./use-ingame-app";
-import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
+import { PropsWithChildren, useEffect, useRef, useState } from "react";
+import { BaseWindow } from "../../utils/window/AppWindow";
 import { AppAbout } from "./about/AppAbout";
+import { AppSettings } from "./settings/AppSettings";
 import { SettingsHotkey } from "./settings/AppSettingsHotkey";
+import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
+import { AppWelcome } from "./welcome/AppWelcome";
+import { MainAppTab, useMainApp } from "./use-main-app";
 
 const MotionBox = motion(Box);
 
@@ -30,7 +29,9 @@ const AppTabPanel = (props: PropsWithChildren) => {
 
 const HEADER_HEIGHT = 50;
 function AlwaysOnTopHeader() {
-  const app_showhide = useHotkeys((s) => s.app_showhide);
+  // const props = useAppProps();
+
+  const desktop = useMainApp(s => s.mode === 'desktop');
 
   return (
     <>
@@ -63,13 +64,13 @@ function AlwaysOnTopHeader() {
           </span>
           <span style={{ flexGrow: 1 }} />
           <small style={{ marginRight: 10, opacity: 0.6 }}>
-            Press <SettingsHotkey name="app_showhide" small noDelete /> to show/hide
+            Press <SettingsHotkey name="app_showhide" small noDelete /> to show/hide{!desktop ? '' : ' when game is in focus'}
           </small>
           <Stack direction={"row"}>
             <IconButton size="small" id="minimizeButton">
               <Minimize />
             </IconButton>
-            <IconButton size="small" id="closeButton">
+            <IconButton size="small" onClick={() => overwolf.windows.getMainWindow().close()}>
               <Close />
             </IconButton>
           </Stack>
@@ -80,8 +81,15 @@ function AlwaysOnTopHeader() {
 }
 
 export const IngameApp = () => {
-  const tab = useIngameApp(s => s.tab);
+  const tab = useMainApp(s => s.tab);
+
   const tutorialOpen = useTutorial(s => s.tutorials.length > 0);
+  const [adsReady, setAdsReady] = useState(false);
+  const mountAds = !tutorialOpen && adsReady;
+
+  useEffect(() => {
+    (window as any).adsReady.then(res => setAdsReady(res));
+  }, []);
 
   return (
     <BaseWindow resizable>
@@ -94,25 +102,25 @@ export const IngameApp = () => {
             <Stack m={0} p={0} overflow={"hidden"} width={"100vw"} height={'100%'} position={'relative'}>
               <TutorialsOverlay />
 
-              <TabList onChange={(_, v) => useIngameApp.setState({ tab: v })} variant="fullWidth" sx={{pr: 2}}>
-                <Tab value={0} label="Welcome" />
-                <Tab value={1} label="Settings" />
-                <Tab value={2} label="About" />
+              <TabList onChange={(_, v) => useMainApp.setState({ tab: v })} variant="fullWidth" sx={{ pr: 2 }}>
+                <Tab value={0} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Home /><span>Home</span></Stack>} />
+                <Tab value={1} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Settings /><span>Settings</span></Stack>} />
+                <Tab value={2} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Info /><span>About</span></Stack>} />
               </TabList>
 
               <Box width={"100%"} height={"100%"} overflow={"auto"} position={"relative"}>
                 <AnimatePresence mode="sync" initial={false}>
-                  {tab === IngameAppTab.WELCOME && (
+                  {tab === MainAppTab.WELCOME && (
                     <AppTabPanel key="tab-0">
                       <AppWelcome />
                     </AppTabPanel>
                   )}
-                  {tab === IngameAppTab.SETTINGS && (
+                  {tab === MainAppTab.SETTINGS && (
                     <AppTabPanel key="tab-1">
                       <AppSettings />
                     </AppTabPanel>
                   )}
-                  {tab === IngameAppTab.ABOUT && (
+                  {tab === MainAppTab.ABOUT && (
                     <AppTabPanel key="tab-2">
                       <AppAbout />
                     </AppTabPanel>
@@ -120,7 +128,7 @@ export const IngameApp = () => {
                 </AnimatePresence>
               </Box>
             </Stack>
-            {!tutorialOpen && <AdContainer key={'ad-container'} />}
+            {mountAds && <AdContainer key={'ad-container'} />}
           </Stack>
         </TabContext>
       </Stack>
@@ -131,6 +139,7 @@ export const IngameApp = () => {
 const AdContainer = () => {
   console.log('render-ad');
   const adRef = useRef<any>(null);
+  const [showTips, setShowTips] = useState(false);
 
   const onLoad = () => {
     console.log('ad-onload');
@@ -141,8 +150,8 @@ const AdContainer = () => {
     const el = document.getElementById('ad-160x600');
     adRef.current = new OwAd(el, { size: { width: 160, height: 600 } });
 
-    adRef.current.addEventListener('display_ad_loaded', () => console.log('display ad loaded'));
-    adRef.current.addEventListener('error', e => console.log('ad error', e));
+    adRef.current.addEventListener('display_ad_loaded', () => { console.log('display-ad-loaded'); setShowTips(false); });
+    adRef.current.addEventListener('error', e => { console.log('ad error', e); setShowTips(true); });
 
     console.log('ad-added');
   }
@@ -161,12 +170,14 @@ const AdContainer = () => {
 
   return (
     <div style={{ position: 'relative', padding: 0, margin: 0, width: 160, height: 600 }}>
-      <Stack position={'absolute'} width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'} textAlign={'center'} spacing={1}>
-        <div style={{ width: '100%', aspectRatio: '1/1', backgroundImage: `url(/img/Logo.png)`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
-        <Typography variant="body2" style={{ opacity: .8 }}>Tips</Typography>
-        <Typography variant="body2" style={{ opacity: .6 }}><small>{tip}</small></Typography>
-        <small><Link onClick={() => setTipNum((tipNum + 1) % Tips.length)} style={{ opacity: .9 }}>Next tip</Link></small>
-      </Stack>
+      {showTips && (
+        <Stack zIndex={9999} position={'absolute'} width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'} textAlign={'center'} spacing={1}>
+          <div style={{ width: '100%', aspectRatio: '1/1', backgroundImage: `url(/img/Logo.png)`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+          <Typography variant="body2" style={{ opacity: .8 }}>Tips</Typography>
+          <Typography variant="body2" style={{ opacity: .6 }}><small>{tip}</small></Typography>
+          <small><Link onClick={() => setTipNum((tipNum + 1) % Tips.length)} style={{ opacity: .9 }}>Next tip</Link></small>
+        </Stack>
+      )}
       <div id={"ad-160x600"} style={{ width: 160, height: 600 }} />
     </div>
   );
