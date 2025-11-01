@@ -5,6 +5,7 @@ import Stack from "@mui/material/Stack";
 import { DetectionCause, GameStateType } from "../../../game_state/GameState";
 import { TipsAndUpdates } from "@mui/icons-material";
 import { useRef } from "react";
+import { KillerDetectionCertainty } from "../../../game_state/DetectableKillers";
 
 const HumanReadableGameState: { [key in GameStateType]: string } = ({
   CLOSED: "Closed",
@@ -23,7 +24,15 @@ const HumanReadableDetectionCause: { [key in DetectionCause]: string } = {
   BLOODPOINTS_TEXT: 'Bloodpoints',
   SETTINGS_TEXT: 'Settings texts',
   KILLER_POWER_TEXT: 'Killer Power text',
+  KILLER_NAME_TEXT: 'Killer Name text',
   FALLBACK: 'Last detection > x seconds'
+}
+
+const HumanReadableCertainty: { [key in KillerDetectionCertainty]: { color: string, text: string } } = {
+  [KillerDetectionCertainty.BLIND_GUESS]: { color: "#9c4343ff", text: "Blind guess" },
+  [KillerDetectionCertainty.UNCERTAIN]: { color: "#bd8c4dff", text: "Uncertain" },
+  [KillerDetectionCertainty.CERTAIN]: { color: "#c5bf6cff", text: "Fairly certain" },
+  [KillerDetectionCertainty.CONFIRMED]: { color: "#70c770ff", text: "Very certain" }
 }
 
 export const AppDetectionDisplay = () => {
@@ -46,20 +55,31 @@ export const AppDetectionDisplay = () => {
   }
 
   return (
-    <Paper variant="outlined" style={{ opacity: .6 }}>
-      <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={44}>
-        <TipsAndUpdates onClick={handleClick} />
-        {smartDetection ? (
-          <Stack>
-            <span style={{ fontSize: 13 }}>Guess: <b>{(HumanReadableGameState[gs.type] || gs.type)?.toUpperCase()}</b></span>
-            {!!gs.detectedBy && <span style={{ fontSize: 11 }}>Based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)?.toUpperCase()}</b></span>}
-            {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={{ fontSize: 11 }}>Open menu to continue detection.</span>}
-            {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={{ fontSize: 11 }}>Open DBD to start detection.</span>}
+    <Stack direction={'row'} spacing={1} alignItems={'center'} width={'100%'}>
+      <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
+        <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
+          <TipsAndUpdates onClick={handleClick} />
+          {smartDetection ? (
+            <Stack spacing={-.5} justifyContent={'center'}>
+              <span style={{ fontSize: 13 }}>State: <b>{(HumanReadableGameState[gs.type] || gs.type)}</b></span>
+              {!!gs.detectedBy && <span style={{ fontSize: 11 }}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
+              {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={{ fontSize: 11 }}>Open menu to continue detection.</span>}
+              {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={{ fontSize: 11 }}>Open DBD to start detection.</span>}
+            </Stack>
+          ) : (
+            <small>Enable to start guessing.</small>
+          )}
+        </Stack>
+      </Paper >
+      <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
+        <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
+          <span>🔪</span>
+          <Stack spacing={-.5} justifyContent={'center'}>
+            <span style={{ fontSize: 13 }}>Killer: <b>{(gs.killer?.name || gs.killerGuess || 'No guess')}</b></span>
+            {!!gs.killer && <span style={{ fontSize: 11 }}>Guess certainty: <b style={{ color: HumanReadableCertainty[gs.killer.certainty].color }}>{HumanReadableCertainty[gs.killer.certainty].text}</b></span>}
           </Stack>
-        ) : (
-          <small>Enable to start guessing.</small>
-        )}
-      </Stack>
-    </Paper >
+        </Stack>
+      </Paper>
+    </Stack>
   )
 }
