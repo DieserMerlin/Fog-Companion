@@ -10,7 +10,7 @@ import { GameState, GameStateGuesser } from '../../game_state/GameState';
 import { AnyScanArea, OcrAreasResult, performOcrAreas, performOcrAreasOnImage } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
-import { INGAME_SETTINGS } from '../in_game/in_game-settings';
+import { INGAME_SETTINGS } from '../main/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
 
 /* ============================================================================
@@ -30,6 +30,7 @@ declare global {
   interface Window {
     bus: TypedBus<AppEvents>;
     cache: { [key: string]: any };
+    gameInfo: overwolf.games.RunningGameInfo | null;
   }
 }
 
@@ -48,7 +49,8 @@ window.cache = {};
 const makeReturn = (key: string, res: OcrAreasResult) => {
   const debug = { type: key, res: res[key as keyof OcrAreasResult] };
   window.bus.emit('ocr-decision', key);
-  // console.log(debug);
+  window.cache['ocr-decision'] = key;
+  console.log(debug);
   return debug;
 };
 
@@ -77,10 +79,8 @@ class BackgroundController {
    * --------------------------------------------------------------------- */
 
   private constructor() {
-    // Prepare all windows eagerly so we can manipulate them fast.
-    for (const windowName of Object.values(kWindowNames)) {
-      this._windows[windowName] = new OWWindow(windowName);
-    }
+    // Disable debug windows on app start
+    BACKGROUND_SETTINGS.update({ enableOcrDebug: false, ocrDebugBreakOn: null });
 
     // Relay GameState guesses to the app bus.
     this.guesser.bus.on('gameState', gs => window.bus.emit('game-state', gs));
@@ -88,35 +88,43 @@ class BackgroundController {
     // Begin periodic OCR (non-blocking).
     this.startOcr();
 
-    // Optionally show the in-game window when the app boots.
-    if (INGAME_SETTINGS.getValue().openOnStartup) {
-      this._windows.in_game.restore();
-    }
-
     // Apply initial background settings and register hotkeys.
     this.settingsUpdate(BACKGROUND_SETTINGS.getValue());
     this.registerHotkeys();
 
-    // Broadcast current running game info every second (unchanged cadence).
+    let initialized = false;
+
     setInterval(() => {
-      overwolf.games.getRunningGameInfo(res => window.bus.emit('game-info', res));
+      overwolf.games.getRunningGameInfo((res) => {
+        window.bus.emit('game-info', res);
+        window.gameInfo = res;
+
+        if (!initialized) {
+          initialized = true;
+          this.applyStartupVisibility(res); // new helper below
+        } else {
+          this.fixMainWindow(!!res?.isRunning);
+        }
+      });
     }, 1000);
 
-    // Wire game start/stop lifecycle.
     this._gameListener = new OWGameListener({
-      onGameStarted: () => {
-        if (INGAME_SETTINGS.getValue().openOnStartup) {
-          this._windows.in_game.restore();
-        }
+      onGameStarted: async () => {
+        // Scenario 2: if app is visible on desktop, switch to in-game;
+        // otherwise respect openOnStartup.
+        const desktopVisible = await this.isWindowVisible(this._windows.main_desktop);
+        const shouldShow = desktopVisible || INGAME_SETTINGS.getValue().openOnStartup;
+        this.toggleMainWindow(shouldShow);
+        this.guesser.onGameOpened();
       },
-      onGameEnded: () => {
+      onGameEnded: async () => {
         window.bus.emit('game-info', null);
-        overwolf.windows.getMainWindow().close();
+        // Scenario 1: always show desktop when the game exits
+        this.toggleMainWindow(true);
+        this.guesser.onGameClosed();
       },
     });
-
     this._gameListener.start();
-    // this._windows.debug.restore();
   }
 
   /** Singleton accessor. */
@@ -125,6 +133,27 @@ class BackgroundController {
       BackgroundController._instance = new BackgroundController();
     }
     return BackgroundController._instance;
+  }
+
+  private applyStartupVisibility(gi: overwolf.games.RunningGameInfo | null) {
+    const openOnStartup = INGAME_SETTINGS.getValue().openOnStartup;
+
+    if (!gi?.isRunning) {
+      // Scenario 1 on app boot w/ game closed: surface desktop window
+      this.toggleMainWindow(true);
+    } else if (openOnStartup) {
+      // Game is already running: show according to in-game/desktop preference
+      this.toggleMainWindow(true);
+    } else {
+      // Game running & openOnStartup is false → stay hidden until hotkey
+      this.toggleMainWindow(false);
+    }
+  }
+
+  private async isWindowVisible(win?: OWWindow | null) {
+    if (!win) return false;
+    const st = await win.getWindowState();
+    return st?.window_state === 'normal' || st?.window_state === 'maximized';
   }
 
   /* ------------------------------------------------------------------------
@@ -138,6 +167,9 @@ class BackgroundController {
   private registerHotkeys() {
     // Apply live settings updates from background settings store.
     BACKGROUND_SETTINGS.hook.subscribe((state) => this.settingsUpdate(state));
+
+    // Toggle between desktop/in-game window.
+    INGAME_SETTINGS.hook.subscribe((state, prev) => prev.showInGame !== state.showInGame && this.toggleMainWindow(true));
 
     // Toggle app modes; same ternary flip logic as before.
     const toggleMode = (mode: AppMode) =>
@@ -158,26 +190,73 @@ class BackgroundController {
   }
 
   /**
-   * Toggle the in-game window between minimized and restored.
-   * Behavior preserved exactly.
+   * Toggle the main window between show/hide and in-game/desktop.
    */
-  private async toggleMainWindow() {
-    const inGameState = await this._windows.in_game.getWindowState();
+  private async toggleMainWindow(show?: boolean) {
+    const inGame = INGAME_SETTINGS.getValue().showInGame && !!window.gameInfo?.isRunning;
 
-    if (inGameState.window_state === 'normal' || inGameState.window_state === 'maximized') {
-      this._windows.in_game.minimize();
+    const usedWindowType = inGame ? 'main_in_game' : 'main_desktop';
+    let usedWindow = this._windows[usedWindowType];
+
+    // Compute default "toggle" behavior only if caller didn't pass a boolean
+    if (typeof show !== 'boolean') {
+      const state = await usedWindow?.getWindowState();
+      show = !(state?.window_state === 'normal' || state?.window_state === 'maximized');
+    }
+
+    const otherWindowType = inGame ? 'main_desktop' : 'main_in_game';
+    const otherWindow = this._windows[otherWindowType];
+
+    if (!show) {
+      // Don't instantiate a window just to minimize it
+      await otherWindow?.close();
+      await usedWindow?.minimize();
+      return;
+    }
+
+    if (!usedWindow)
+      usedWindow = this._windows[usedWindowType] = new OWWindow(usedWindowType);
+
+    await otherWindow?.close();
+    this._windows[otherWindowType] = null;
+
+    await usedWindow.restore();
+  }
+
+  async fixMainWindow(running?: boolean) {
+    if (!running) {
+      // Game not running → ensure desktop is up (scenario 1)
+      if (!this._windows.main_desktop) this.toggleMainWindow(true);
+      return;
+    }
+
+    if (running && !this._windows.main_in_game) {
+      const state = await this._windows.main_desktop?.getWindowState();
+      const wasVisible = state?.window_state === 'normal' || state?.window_state === 'maximized';
+      this.toggleMainWindow(wasVisible);
+    }
+  }
+
+  private toggleWindow(window: kWindowNames, to?: boolean) {
+    const show = to ?? !!this._windows[window];
+
+    if (!show) {
+      this._windows[window]?.close();
+      this._windows[window] = null;
     } else {
-      this._windows.in_game.restore();
+      if (!this._windows[window]) this._windows[window] = new OWWindow(window);
+      this._windows[window].restore();
     }
   }
 
   /**
    * Apply window visibility to match current background settings.
-   * Identity with original: 1v1 and callouts get restored/minimized.
+   * Identity with original: 1v1 and callouts get restored/closed.
    */
   private settingsUpdate(settings: BackgroundSettings) {
-    this._windows.mode_1v1[settings.mode === '1v1' ? 'restore' : 'minimize']();
-    this._windows.callouts[settings.calloutOverlay ? 'restore' : 'minimize']();
+    this.toggleWindow(kWindowNames.mode_1v1, settings.mode === '1v1');
+    this.toggleWindow(kWindowNames.callouts, settings.calloutOverlay);
+    this.toggleWindow(kWindowNames.debug, settings.enableOcrDebug);
   }
 
   /* ------------------------------------------------------------------------
@@ -199,7 +278,15 @@ class BackgroundController {
 
     this._ocrInterval = setInterval(async () => {
       if (lock || (Date.now() - last) < 1000) return;
-      if (!BACKGROUND_SETTINGS.getValue().enableSmartFeatures) return;
+
+      // Skip if disabled
+      const settings = BACKGROUND_SETTINGS.getValue();
+      if (!settings.enableSmartFeatures) return;
+
+      // Debug breakpoint
+      if (settings.enableOcrDebug && !!settings.ocrDebugBreakOn) {
+        if (this.guesser.state.type === settings.ocrDebugBreakOn) return;
+      }
 
       lock = true;
 
@@ -228,7 +315,7 @@ class BackgroundController {
             ],
             blackMax: 10,
             colorDeltaMax: 3,
-            minMatchRatio: 0.97
+            minMatchRatio: 0.9
           },
           { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.3, y: 0.3, w: 0.4, h: 0.2 }, psm: PSM.SPARSE_TEXT, canvas: window.cache.canvas?.['loading-text'] || undefined },
           { id: 'settings', type: 'ocr' as const, rect: { x: 0, y: 0, w: 1, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['settings'] || undefined },

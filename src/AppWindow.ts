@@ -22,7 +22,6 @@ export class AppWindow {
   private _windowId?: string;
 
   constructor(windowName: string) {
-    this.mainWindow = new OWWindow("background");
     this.currWindow = new OWWindow(windowName);
 
     // Wire anything already in the DOM

@@ -7,9 +7,8 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { AnimatePresence, motion } from "motion/react";
-import React, { PropsWithChildren, ReactElement, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { PropsWithChildren, ReactElement, memo, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
-import { WELCOME_TUTORIALS } from "./tutorials/WelcomeTutorial";
 
 /** ---------------- Types ---------------- */
 
@@ -40,12 +39,6 @@ export const useTutorial = create<{
   clear: () => set({ tutorials: [], currentIndex: 0 }),
   setTutorials: (tutorials) => set({ tutorials }),
 }));
-
-// one-time bootstrap
-if (!localStorage.getItem('tutorial')) {
-  localStorage.setItem('tutorial', '1');
-  useTutorial.getState().setTutorials(WELCOME_TUTORIALS);
-}
 
 /** ---------------- Primitives ---------------- */
 
@@ -384,9 +377,9 @@ export const TutorialsOverlay = () => {
         <motion.div
           key="tutorials"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1000000, willChange: 'transform' }}
-          initial={{ x: '100%' }}   // use %; vw can be flaky in motion/react
+          initial={{ x: '100vw' }}   // use %; vw can be flaky in motion/react
           animate={{ x: 0 }}
-          exit={{ x: '-100%' }}      // slide back out the same way it came in
+          exit={{ x: '-100vw' }}      // slide back out the same way it came in
           transition={{ duration: 0.5, ease: [0.29, 0.29, 0.17, 1] }}
         >
           <RenderTutorialsInner tutorials={tutorials} currentIndex={currentIndex} />

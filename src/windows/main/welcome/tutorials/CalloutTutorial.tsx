@@ -3,14 +3,14 @@ import Stack from "@mui/material/Stack";
 import { SettingsHotkey } from "../../settings/AppSettingsHotkey";
 import { EnableCalloutFeature } from "../../settings/EnableDisableFeatures";
 import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
-import { IngameAppTab, useIngameApp } from "../../use-ingame-app";
+import { MainAppTab, useMainApp } from "../../use-main-app";
 import { CloseTutorialConfirmation, Tutorial, useTutorial } from "../AppTutorial";
 import Link from "@mui/material/Link";
 import { OverwolfLink } from "../../../../utils/mui/OverwolfLink";
 import { MapBrowserHotkeys } from "../../settings/MapBrowserHotkeys";
 
-const openCalloutSettings = () => { useIngameApp.setState({ tab: IngameAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
-const openAbout = () => { useIngameApp.setState({ tab: IngameAppTab.ABOUT }); };
+const openCalloutSettings = () => { useMainApp.setState({ tab: MainAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
+const openAbout = () => { useMainApp.setState({ tab: MainAppTab.ABOUT }); };
 const SettingsLink = () => <CloseTutorialConfirmation onClose={openCalloutSettings}>Settings</CloseTutorialConfirmation>;
 const AboutLink = () => <CloseTutorialConfirmation onClose={openAbout}>About-Tab</CloseTutorialConfirmation>;
 

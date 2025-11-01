@@ -17,7 +17,7 @@
     "Hotkeys",
     "FileSystem",
     "Extensions",
-    "Streaming",
+    "DesktopStreaming",
     "Profile",
     "GameInfo"
   ],
@@ -107,12 +107,15 @@
         "background_optimization": true,
         "is_background_page": true
       },
-      "in_game": {
-        "file": "in_game.html",
+      "main_in_game": {
+        "file": "main.html",
         "focus_game_takeover": "ReleaseOnHidden",
         "focus_game_takeover_release_hotkey": "app_showhide",
         "transparent": true,
         "override_on_update": true,
+        "in_game_only": true,
+        "restrict_to_game_bounds": true,
+        "keep_window_location": true,
         "size": {
           "width": 1400,
           "height": 800
@@ -123,6 +126,25 @@
         },
         "resizable": true
       },
+      "main_desktop": {
+        "file": "main.html",
+        "override_on_update": true,
+        "desktop_only": true,
+        "keep_window_location": true,
+        "native_window": true,
+        "use_os_windowing": false,
+        "show_in_taskbar": true,
+        "disable_hardware_acceleration": true,
+        "size": {
+          "width": 1500,
+          "height": 900
+        },
+        "min_size": {
+          "width": 1400,
+          "height": 800
+        },
+        "resizable": true
+      },
       "mode_1v1": {
         "file": "mode_1v1.html",
         "in_game_only": true,
@@ -130,12 +152,15 @@
         "override_on_update": true,
         "restrict_to_game_bounds": true,
         "size": {
-          "width": 700,
-          "height": 170
+          "width": 616,
+          "height": 104
         },
         "min_size": {
-          "width": 700,
-          "height": 170
+          "width": 616,
+          "height": 104
+        },
+        "start_position": {
+          "top": 10
         }
       },
       "callouts": {
