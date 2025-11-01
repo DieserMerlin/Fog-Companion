@@ -4,6 +4,7 @@ import { GameStateMap, MapResolver } from "../map_resolver/MapResolver";
 import { OCRSingleResult, PureBlackResult } from "../utils/ocr/area-ocr";
 import { createBus } from "../utils/window/window-bus";
 import { BACKGROUND_SETTINGS } from "../windows/background/background-settings";
+import { DetectableKillers, Killer, KillerDetection, KillerDetectionCertainty } from "./DetectableKillers";
 
 // ===== Shared Types =====
 
@@ -24,27 +25,15 @@ export enum DetectionCause {
   MAP_TEXT = 'MAP_TEXT',
   SETTINGS_TEXT = 'SETTINGS_TEXT',
   KILLER_POWER_TEXT = 'KILLER_POWER_TEXT',
+  KILLER_NAME_TEXT = 'KILLER_NAME_TEXT',
   FALLBACK = 'FALLBACK',
 }
-
-export type DetectableKiller = {
-  name: string;
-  start: { m1?: true, m2?: true, label?: string };
-  detect: {
-    powerIngameText?: string[]
-  }
-}
-
-export const DetectableKillers: DetectableKiller[] = [
-  //  { name: 'WRAITH', start: { m1: true, label: 'M1' }, detect: { powerIngameText: ['CLOAK', 'UNCLOAK'] } }, // useless rn
-  { name: 'BLIGHT', start: { m2: true, label: "RUSH (M2)" }, detect: { powerIngameText: ['RUSH'] } },
-  { name: 'NURSE', start: { m2: true, label: "BLINK (M2)" }, detect: { powerIngameText: ['BLINK'] } },
-]
 
 export type GameState = {
   type: GameStateType;
   map?: GameStateMap;
-  killer?: DetectableKiller;
+  killer?: KillerDetection & { certainty: KillerDetectionCertainty };
+  killerGuess?: Killer;
   detectedBy?: DetectionCause;
 };
 
@@ -80,16 +69,28 @@ export class GameStateGuesser {
     }
   }
 
+  private killerGuess: Killer | null = null;
+
   private lastUpdate = Date.now();
   push(next: GameState) {
     const settings = BACKGROUND_SETTINGS.getValue();
-    if (!settings.enableKillerDetection) delete next.killer;
+    if (!settings.enableKillerDetection) {
+      delete next.killer;
+      this.killerGuess = null;
+    }
     if (!settings.enableMapDetection) delete next.map;
     if (!settings.enableSmartFeatures) next = { type: GameStateType.UNKNOWN };
 
     const prev = this._state;
     if (isEqual(prev, next)) return;
     if (prev.type !== GameStateType.MATCH) next.map = prev.map;
+
+    if (prev.type !== GameStateType.MENU && next.type === GameStateType.MENU) {
+      this.killerGuess = null;
+      next.killer = null;
+    } else next.killer = next.killer ?? prev.killer;
+
+    next.killerGuess = this.killerGuess;
 
     this._state = next;
     this.publishGameStateChange(prev, next);
@@ -221,20 +222,82 @@ export class GameStateGuesser {
    * @param res 
    * @returns 
    */
-  guessKiller(res: OCRSingleResult) {
+  guessKillerByPower(res: OCRSingleResult) {
     if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return null;
+    if (this.state.type !== GameStateType.MATCH) return null;
 
-    if (this.state.type === GameStateType.UNKNOWN) return;
-    if (this.state.type !== GameStateType.MATCH) return;
+    const performGuess = () => {
+      // Confirm killer if already guessed
+      const confirmKiller = !!this.killerGuess && (DetectableKillers.find(k => k.name === this.killerGuess));
+      if (confirmKiller) {
+        if (!!confirmKiller.detect.confirmPowerLabel?.length) {
+          const detectTexts = confirmKiller.detect.confirmPowerLabel.map(t => t.toLowerCase());
+          if (detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)))) {
+            return { certainty: KillerDetectionCertainty.CONFIRMED, ...confirmKiller };
+          }
+        }
+      }
 
-    const texts = this.normalizeStringArray(res.text);
+      const matching = DetectableKillers.filter(k => {
+        if (!k.detect.powerLabel?.length) return;
+
+        const detectTexts = k.detect.powerLabel.map(t => t.toLowerCase());
+        return detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)))
+      });
+
+      // No brainer
+      if (matching.length === 1) {
+        return { ...matching[0], certainty: (this.state.killer?.name === matching[0].name ? KillerDetectionCertainty.CONFIRMED : KillerDetectionCertainty.CERTAIN) };
+      }
+
+      // Fallback if multiple match (should not actually happen)
+      if (matching.length > 1) {
+        return { certainty: KillerDetectionCertainty.UNCERTAIN, ...matching[0] };
+      }
+
+      const matching2 = DetectableKillers.filter(k => {
+        if (!!k.detect.confirmPowerLabel?.length) {
+          const detectTexts = k.detect.confirmPowerLabel.map(t => t.toLowerCase());
+          return detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)));
+        }
+      });
+
+      if (matching2[0]) return { certainty: KillerDetectionCertainty.BLIND_GUESS, ...matching2[0] };
+      return null;
+    }
+
+    const guess = performGuess();
+    if (!!guess && guess.certainty >= (this.state.killer?.certainty ?? 0)) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_POWER_TEXT });
+  }
+
+  /**
+   * Guess the current killer by their name and aliases.
+   * @param res
+   * @returns
+   */
+  guessKillerByName(res: OCRSingleResult) {
+    if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return null;
+    if (this.state.type !== GameStateType.MENU) return null;
+
+    console.log("§HAAAAAAALLO")
+
     for (const killer of DetectableKillers) {
-      if (!killer.detect.powerIngameText) return;
-      const detectTexts = killer.detect.powerIngameText.map(t => t.toLowerCase());
+      if (!killer.detect.names?.length) continue;
+      const detectTexts = killer.detect.names.map(t => t.toLowerCase());
 
-      if (detectTexts.some(dt => texts.includes(dt))) {
-        this.push({ ...this.state, killer, detectedBy: DetectionCause.KILLER_POWER_TEXT });
-        return true;
+      if (detectTexts.some(dt => res.text.some(t => {
+        console.log(dt);
+        if (t.includes("...")) {
+          const [namePart] = t.split("...");
+          console.log({ t, namePart, dt, res: dt.includes(namePart.toLowerCase()) })
+          return dt.includes(namePart.toLowerCase());
+        }
+        return t.toLowerCase().includes(dt);
+      }))) {
+        this.killerGuess = killer.name;
+        const guess = { ...killer, certainty: KillerDetectionCertainty.BLIND_GUESS };
+        if (!!guess && guess.certainty >= (this.state.killer?.certainty ?? 0)) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_NAME_TEXT });
+        return;
       }
     }
   }
