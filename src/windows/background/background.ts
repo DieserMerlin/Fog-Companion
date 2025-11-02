@@ -302,7 +302,7 @@ class BackgroundController {
         const OCR_AREAS: AnyScanArea[] = [
           { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 240, canvas: window.cache.canvas?.['map'] || undefined },
           { id: 'main-menu', type: 'ocr' as const, rect: { x: 0, y: 0.0, w: 0.5, h: 0.6 }, psm: PSM.SINGLE_COLUMN, threshold: 120, canvas: window.cache.canvas?.['main-menu'] || undefined },
-          { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.5, y: 0.7, w: 0.5, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['menu-btn'] || undefined },
+          { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.4, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['menu-btn'] || undefined },
           { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.65, y: 0, w: 0.35, h: 0.15 }, psm: PSM.SINGLE_LINE, canvas: window.cache.canvas?.['bloodpoints'] || undefined },
           {
             id: 'loading-screen',
@@ -317,7 +317,7 @@ class BackgroundController {
             colorDeltaMax: 3,
             minMatchRatio: 0.9
           },
-          { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.3, y: 0.35, w: 0.4, h: 0.65 }, psm: PSM.SPARSE_TEXT, canvas: window.cache.canvas?.['loading-text'] || undefined },
+          { id: 'loading-text', type: 'ocr' as const, rect: { x: 0.3, y: 0.35, w: 0.4, h: 0.4 }, psm: PSM.SPARSE_TEXT, canvas: window.cache.canvas?.['loading-text'] || undefined },
           { id: 'settings', type: 'ocr' as const, rect: { x: 0, y: 0, w: 1, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['settings'] || undefined },
         ] as const;
 
@@ -352,7 +352,7 @@ class BackgroundController {
           // alias preserved for evaluateRes
           (res as any)['settings-back-btn'] = res['map'];
           window.bus.emit('ocr-res', res);
-          const match = await this.evaluateRes(res as OcrAreasResult);
+          const match = await this.evaluateRes(sub as OcrAreasResult);
           return !!match;
         };
 
@@ -430,9 +430,6 @@ class BackgroundController {
       if (this.guesser.guessLoadingScreen(undefined, lt)) {
         return makeReturn('loading-text', res);
       }
-      if (this.guesser.guessKillerByPower(lt)) {
-        return makeReturn('killer', res);
-      }
     }
 
     // 5) Main menu
@@ -447,8 +444,13 @@ class BackgroundController {
     if (res['menu-btn']?.type === 'ocr') {
       const mb = res['menu-btn'] as Extract<NonNullable<typeof res['menu-btn']>, { type: 'ocr' }>;
       console.log("GUESS-KILLER-BY-NAME");
-      this.guesser.guessKillerByName(mb);
+      if (this.guesser.guessKillerByName(mb)) {
+        return makeReturn('menu-btn', res);
+      }
       if (this.guesser.guessMenu('menu-btn', mb)) {
+        return makeReturn('menu-btn', res);
+      }
+      if (this.guesser.guessKillerByPower(mb)) {
         return makeReturn('menu-btn', res);
       }
     }

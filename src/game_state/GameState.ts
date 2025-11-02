@@ -276,10 +276,8 @@ export class GameStateGuesser {
    * @returns
    */
   guessKillerByName(res: OCRSingleResult) {
-    if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return null;
-    if (this.state.type !== GameStateType.MENU) return null;
-
-    console.log("§HAAAAAAALLO")
+    if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return false;
+    if (this.state.type !== GameStateType.MENU) return false;
 
     for (const killer of DetectableKillers) {
       if (!killer.detect.names?.length) continue;
@@ -297,9 +295,11 @@ export class GameStateGuesser {
         this.killerGuess = killer.name;
         const guess = { ...killer, certainty: KillerDetectionCertainty.BLIND_GUESS };
         if (!!guess && guess.certainty >= (this.state.killer?.certainty ?? 0)) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_NAME_TEXT });
-        return;
+        return true;
       }
     }
+
+    return false;
   }
 
   /**
