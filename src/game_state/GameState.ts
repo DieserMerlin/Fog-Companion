@@ -188,12 +188,17 @@ export class GameStateGuesser {
   guessMap(guessedName: string): GameStateMap | null {
     if (!BACKGROUND_SETTINGS.getValue().enableMapDetection) return null;
 
-    const matches = Object.keys(MapDirectory)
-      .flatMap(realm =>
-        (MapDirectory as any)[realm].map((mapFile: string) => ({
+    const lengthGate = (mapFile: string, guessedName: string) => {
+      if (Math.abs(MapResolver.Instance().baseName(mapFile).length - guessedName.length) >= 3) return 0;
+      return undefined;
+    }
+
+    const matches = (Object.keys(MapDirectory) as (keyof typeof MapDirectory)[])
+      .flatMap((realm) =>
+        (MapDirectory)[realm].map((mapFile: string) => ({
           realm,
           mapFile,
-          match: this.calculateTextMatch(mapFile, guessedName),
+          match: lengthGate(mapFile, guessedName) ?? this.calculateTextMatch(mapFile, guessedName),
         }))
       )
       .sort((a, b) => b.match - a.match);
@@ -205,7 +210,13 @@ export class GameStateGuesser {
 
     console.log({ highestMatch });
 
-    if (this._lastGuessedMap && (Date.now() - this._lastGuessedMap.time) > 3000 && highestMatch.match < this._lastGuessedMap.match) return null;
+    if (
+      this._lastGuessedMap &&
+      (Date.now() - this._lastGuessedMap.time) < 3000 && (
+        highestMatch.match < this._lastGuessedMap.match || // Ignore worse matches
+        highestMatch.mapFile.length < this._lastGuessedMap.mapFile.length // Ignore shorter matches (dissolving text)
+      )
+    ) return null;
     this._lastGuessedMap = { time: Date.now(), ...highestMatch };
 
     const result = MapResolver.Instance().makeMapByName(highestMatch.mapFile);

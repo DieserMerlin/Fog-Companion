@@ -25,7 +25,7 @@ const HumanReadableDetectionCause: { [key in DetectionCause]: string } = {
   SETTINGS_TEXT: 'Settings texts',
   KILLER_POWER_TEXT: 'Killer Power text',
   KILLER_NAME_TEXT: 'Killer Name text',
-  FALLBACK: 'Last detection > x seconds'
+  FALLBACK: 'Fallback'
 }
 
 const HumanReadableCertainty: { [key in KillerDetectionCertainty]: { color: string, text: string } } = {
@@ -33,6 +33,23 @@ const HumanReadableCertainty: { [key in KillerDetectionCertainty]: { color: stri
   [KillerDetectionCertainty.UNCERTAIN]: { color: "#bd8c4dff", text: "Uncertain" },
   [KillerDetectionCertainty.CERTAIN]: { color: "#c5bf6cff", text: "Fairly certain" },
   [KillerDetectionCertainty.CONFIRMED]: { color: "#70c770ff", text: "Very certain" }
+}
+
+const ellipsisStyle = {
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  maxWidth: '100%'
+}
+
+const firstLineStyle = {
+  fontSize: 13,
+  ...ellipsisStyle
+}
+
+const secondLineStyle = {
+  fontSize: 11,
+  ...ellipsisStyle
 }
 
 export const AppDetectionDisplay = () => {
@@ -60,11 +77,11 @@ export const AppDetectionDisplay = () => {
         <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
           <TipsAndUpdates onClick={handleClick} />
           {smartDetection ? (
-            <Stack spacing={-.5} justifyContent={'center'}>
-              <span style={{ fontSize: 13 }}>State: <b>{(HumanReadableGameState[gs.type] || gs.type)}</b></span>
-              {!!gs.detectedBy && <span style={{ fontSize: 11 }}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
-              {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={{ fontSize: 11 }}>Open menu to continue detection.</span>}
-              {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={{ fontSize: 11 }}>Open DBD to start detection.</span>}
+            <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
+              <span style={firstLineStyle}>State: <b>{(gs.type === GameStateType.MATCH && !!gs.map && <>Match ({gs.map.name})</>) || (HumanReadableGameState[gs.type] || gs.type)}</b></span>
+              {!!gs.detectedBy && <span style={secondLineStyle}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
+              {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={secondLineStyle}>Open menu to continue detection.</span>}
+              {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={secondLineStyle}>Open DBD to start detection.</span>}
             </Stack>
           ) : (
             <small>Enable to start guessing.</small>
@@ -74,12 +91,12 @@ export const AppDetectionDisplay = () => {
       <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
         <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
           <span>🔪</span>
-          <Stack spacing={-.5} justifyContent={'center'}>
-            <span style={{ fontSize: 13 }}>Killer: <b>{(gs.killer?.name || gs.killerGuess || 'No guess')}</b></span>
-            {!!gs.killer && <span style={{ fontSize: 11 }}>Guess certainty: <b style={{ color: HumanReadableCertainty[gs.killer.certainty].color }}>{HumanReadableCertainty[gs.killer.certainty].text}</b></span>}
+          <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
+            <span style={firstLineStyle}>Killer: <b>{(gs.killer?.name || gs.killerGuess || 'No guess')}</b></span>
+            {!!gs.killer && <span style={secondLineStyle}>Guess certainty: <b style={{ color: HumanReadableCertainty[gs.killer.certainty].color }}>{HumanReadableCertainty[gs.killer.certainty].text}</b></span>}
           </Stack>
         </Stack>
       </Paper>
-    </Stack>
+    </Stack >
   )
 }
