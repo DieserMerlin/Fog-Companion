@@ -1,11 +1,11 @@
-import Paper from "@mui/material/Paper";
-import { useGameState } from "../../../utils/hooks/gamestate-hook"
-import { BACKGROUND_SETTINGS } from "../../background/background-settings";
-import Stack from "@mui/material/Stack";
-import { DetectionCause, GameStateType } from "../../../game_state/GameState";
 import { TipsAndUpdates } from "@mui/icons-material";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import { HumanReadableCertainty } from 'fog-companion-web';
 import { useRef } from "react";
-import { KillerDetectionCertainty } from "../../../game_state/DetectableKillers";
+import { DetectionCause, GameStateType } from "../../../game_state/GameState";
+import { useGameState } from "../../../utils/hooks/gamestate-hook";
+import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 
 const HumanReadableGameState: { [key in GameStateType]: string } = ({
   CLOSED: "Closed",
@@ -26,13 +26,6 @@ const HumanReadableDetectionCause: { [key in DetectionCause]: string } = {
   KILLER_POWER_TEXT: 'Killer Power text',
   KILLER_NAME_TEXT: 'Killer Name text',
   FALLBACK: 'Fallback'
-}
-
-const HumanReadableCertainty: { [key in KillerDetectionCertainty]: { color: string, text: string } } = {
-  [KillerDetectionCertainty.BLIND_GUESS]: { color: "#9c4343ff", text: "Blind guess" },
-  [KillerDetectionCertainty.UNCERTAIN]: { color: "#bd8c4dff", text: "Uncertain" },
-  [KillerDetectionCertainty.CERTAIN]: { color: "#c5bf6cff", text: "Fairly certain" },
-  [KillerDetectionCertainty.CONFIRMED]: { color: "#70c770ff", text: "Very certain" }
 }
 
 const ellipsisStyle = {

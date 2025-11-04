@@ -1,6 +1,8 @@
 import { defineConfig, Plugin } from 'vite';
 import { resolve } from 'path';
 import OverwolfPlugin from './.vite/plugins/OverwolfPlugin';
+// @ts-expect-error
+import react from '@vitejs/plugin-react';
 
 const r = (p: string) => resolve(__dirname, p);
 
@@ -21,14 +23,29 @@ function flattenHtmlPaths(): Plugin {
   };
 }
 
+const isDevMode = process.env.NODE_ENV !== 'production';
+
 export default defineConfig({
+  // Make sure the Overwolf runtime always sees dev-friendly code
+  css: { devSourcemap: true },
+  esbuild: {
+    sourcemap: true,
+  },
+  define: {
+    'import.meta.env.DEV': isDevMode,
+    __DEV__: isDevMode,
+  },
   logLevel: 'info',
   publicDir: r('public'),
   mode: process.env.NODE_ENV,
   build: {
     outDir: r('dist'),
     emptyOutDir: true,
-    sourcemap: true,
+
+    sourcemap: 'inline',
+    minify: false,
+    target: 'esnext',
+
     rollupOptions: {
       onwarn(warning, warn) {
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
@@ -50,9 +67,9 @@ export default defineConfig({
           assetInfo.name?.endsWith('.css') ? 'css/[name][extname]' : 'assets/[name][extname]',
       },
     },
-    target: 'es2020',
   },
   plugins: [
+    react(),
     flattenHtmlPaths(),
     OverwolfPlugin({ makeOpk: process.env.MAKE_OPK, setVersion: process.env.SET_VERSION }),
   ]
