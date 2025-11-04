@@ -50,10 +50,11 @@ The map images are located in the `public/img/maps` directory. A script (`tools/
 - [Node.js](https://nodejs.org/)
 - [Yarn](https://yarnpkg.com/) (or npm)
 - [Overwolf](https://www.overwolf.com/app/Overwolf-Overwolf)
-
-### Development
+- [An overwolf developer account](https://dev.overwolf.com/ow-native/getting-started/project-roadmap#step-5---submit-your-app-idea)
 
 > For development, an approved Overwolf Developer Account is needed to load the unpacked application.
+
+### Development
 
 1.  **Clone the repository:**
     ```bash
@@ -104,9 +105,9 @@ To create an Overwolf package (`.opk`), run:
 yarn build:opk
 ```
 
-This will create an `.opk` file in the `dist` folder, which can be used to distribute the application.
+This will create an `.opk` file in the `releases` folder, which can be used to distribute the application.
 
-# Update version
+### Updating the version
 
 To set a new version, update it in `public/manifest.json` as well as the `package.json` files.
 
