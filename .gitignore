@@ -28,3 +28,6 @@ yarn-error.log*
 
 # Generated files
 src/generated-map-directory.ts
+
+# Config
+src/AppConfig.ts

@@ -2,7 +2,10 @@ import { create } from "zustand";
 
 export enum MainAppTab {
   WELCOME,
+  MODE_1V1,
+  MODE_SCRIMS,
   SETTINGS,
+  ACCOUNT,
   ABOUT
 }
 

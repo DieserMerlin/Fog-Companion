@@ -1,4 +1,4 @@
-import { Close, Home, Info, Minimize, Settings } from "@mui/icons-material";
+import { Alarm, Close, Home, Info, Minimize, People, Person, Settings } from "@mui/icons-material";
 import { TabContext, TabList } from "@mui/lab";
 import { Box, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Typography } from "@mui/material";
 import { AnimatePresence, motion } from "motion/react";
@@ -10,6 +10,8 @@ import { SettingsHotkey } from "./settings/AppSettingsHotkey";
 import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
 import { MainAppTab, useMainApp } from "./use-main-app";
+import { useSession } from "../../utils/trpc/use-session";
+import { LoginDialogWrapper } from "./account/LoginDialog";
 
 const MotionBox = motion(Box);
 
@@ -91,6 +93,8 @@ export const IngameApp = () => {
     (window as any).adsReady.then(res => setAdsReady(res));
   }, []);
 
+  const userName = useSession(s => s.session?.user?.mainAuth?.displayName);
+
   return (
     <BaseWindow resizable>
       <Stack position={'fixed'} top={0} left={0} m={0} p={0} width={'100vw'} height={'100vh'} overflow={'hidden'}>
@@ -103,9 +107,12 @@ export const IngameApp = () => {
               <TutorialsOverlay />
 
               <TabList onChange={(_, v) => useMainApp.setState({ tab: v })} variant="fullWidth" sx={{ pr: 2 }}>
-                <Tab value={0} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Home /><span>Home</span></Stack>} />
-                <Tab value={1} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Settings /><span>Settings</span></Stack>} />
-                <Tab value={2} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Info /><span>About</span></Stack>} />
+                <Tab value={MainAppTab.WELCOME} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Home /><span>Home</span></Stack>} />
+                <Tab value={MainAppTab.MODE_1V1} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Alarm /><span>Mode: 1v1</span></Stack>} />
+                <Tab value={MainAppTab.MODE_SCRIMS} disabled label={<Stack direction={'row'} spacing={1} alignItems={'center'}><People /><span>Mode: Scrims</span></Stack>} />
+                <Tab value={MainAppTab.SETTINGS} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Settings /><span>Settings</span></Stack>} />
+                <Tab value={MainAppTab.ACCOUNT} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Person /><span>{userName ?? 'Login'}</span></Stack>} />
+                <Tab value={MainAppTab.ABOUT} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Info /><span>About</span></Stack>} />
               </TabList>
 
               <Box width={"100%"} height={"100%"} overflow={"auto"} position={"relative"}>
@@ -116,12 +123,17 @@ export const IngameApp = () => {
                     </AppTabPanel>
                   )}
                   {tab === MainAppTab.SETTINGS && (
-                    <AppTabPanel key="tab-1">
+                    <AppTabPanel key="tab-3">
                       <AppSettings />
                     </AppTabPanel>
                   )}
+                  {tab === MainAppTab.ACCOUNT && (
+                    <AppTabPanel key="tab-4">
+                      <LoginDialogWrapper onClose={() => useMainApp.setState({ tab: MainAppTab.WELCOME })} />
+                    </AppTabPanel>
+                  )}
                   {tab === MainAppTab.ABOUT && (
-                    <AppTabPanel key="tab-2">
+                    <AppTabPanel key="tab-5">
                       <AppAbout />
                     </AppTabPanel>
                   )}

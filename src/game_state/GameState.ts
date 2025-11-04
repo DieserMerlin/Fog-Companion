@@ -4,7 +4,8 @@ import { GameStateMap, MapResolver } from "../map_resolver/MapResolver";
 import { OCRSingleResult, PureBlackResult } from "../utils/ocr/area-ocr";
 import { createBus } from "../utils/window/window-bus";
 import { BACKGROUND_SETTINGS } from "../windows/background/background-settings";
-import { DetectableKillers, Killer, KillerDetection, KillerDetectionCertainty } from "./DetectableKillers";
+import { DetectableKillers, KillerDetection } from "./DetectableKillers";
+import { DetectionCertainty, Killer } from "@diesermerlin/fog-companion-web";
 
 // ===== Shared Types =====
 
@@ -32,14 +33,22 @@ export enum DetectionCause {
 export type GameState = {
   type: GameStateType;
   map?: GameStateMap;
-  killer?: KillerDetection & { certainty: KillerDetectionCertainty };
+  killer?: KillerDetection & { certainty: DetectionCertainty };
   killerGuess?: Killer;
   detectedBy?: DetectionCause;
 };
 
+export const DetectionCertaintyWeight: { [key in DetectionCertainty]: number } = {
+  [DetectionCertainty.BLIND_GUESS]: 0,
+  [DetectionCertainty.UNCERTAIN]: 10,
+  [DetectionCertainty.CERTAIN]: 20,
+  [DetectionCertainty.AUTO_CONFIRMED]: 30,
+  [DetectionCertainty.CONFIRMED]: 40,
+}
+
 const isEqual = (a: any, b: any) => a === b;
 
-// ===== GameStateGuesser (mostly unchanged; now delegates to MapResolver) =====
+// ===== GameStateGuesser (now delegates to MapResolver) =====
 
 export class GameStateGuesser {
 
@@ -244,7 +253,7 @@ export class GameStateGuesser {
         if (!!confirmKiller.detect.confirmPowerLabel?.length) {
           const detectTexts = confirmKiller.detect.confirmPowerLabel.map(t => t.toLowerCase());
           if (detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)))) {
-            return { certainty: KillerDetectionCertainty.CONFIRMED, ...confirmKiller };
+            return { certainty: DetectionCertainty.AUTO_CONFIRMED, ...confirmKiller };
           }
         }
       }
@@ -258,12 +267,12 @@ export class GameStateGuesser {
 
       // No brainer
       if (matching.length === 1) {
-        return { ...matching[0], certainty: (this.state.killer?.name === matching[0].name ? KillerDetectionCertainty.CONFIRMED : KillerDetectionCertainty.CERTAIN) };
+        return { ...matching[0], certainty: (this.state.killer?.name === matching[0].name ? DetectionCertainty.AUTO_CONFIRMED : DetectionCertainty.CERTAIN) };
       }
 
       // Fallback if multiple match (should not actually happen)
       if (matching.length > 1) {
-        return { certainty: KillerDetectionCertainty.UNCERTAIN, ...matching[0] };
+        return { certainty: DetectionCertainty.UNCERTAIN, ...matching[0] };
       }
 
       const matching2 = DetectableKillers.filter(k => {
@@ -273,12 +282,12 @@ export class GameStateGuesser {
         }
       });
 
-      if (matching2[0]) return { certainty: KillerDetectionCertainty.BLIND_GUESS, ...matching2[0] };
+      if (matching2[0]) return { certainty: DetectionCertainty.BLIND_GUESS, ...matching2[0] };
       return null;
     }
 
     const guess = performGuess();
-    if (!!guess && guess.certainty >= (this.state.killer?.certainty ?? 0)) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_POWER_TEXT });
+    if (!!guess && DetectionCertaintyWeight[guess.certainty] >= DetectionCertaintyWeight[this.state.killer?.certainty ?? DetectionCertainty.BLIND_GUESS]) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_POWER_TEXT });
   }
 
   /**
@@ -304,8 +313,9 @@ export class GameStateGuesser {
         return t.toLowerCase().includes(dt);
       }))) {
         this.killerGuess = killer.name;
-        const guess = { ...killer, certainty: KillerDetectionCertainty.BLIND_GUESS };
-        if (!!guess && guess.certainty >= (this.state.killer?.certainty ?? 0)) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_NAME_TEXT });
+        const guess = { ...killer, certainty: DetectionCertainty.BLIND_GUESS };
+        if (!!guess && DetectionCertaintyWeight[guess.certainty] >= DetectionCertaintyWeight[this.state.killer?.certainty ?? DetectionCertainty.BLIND_GUESS])
+          this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_NAME_TEXT });
         return true;
       }
     }
