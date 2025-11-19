@@ -18,9 +18,9 @@ export type BackgroundSettings = {
 
 export const BACKGROUND_SETTINGS = createStorage<BackgroundSettings>('BACKGROUND_SETTINGS', {
   mode: 'none',
-  calloutOverlay: false,
+  calloutOverlay: true,
 
-  enableSmartFeatures: false,
+  enableSmartFeatures: true,
   enableMapDetection: true,
   enableKillerDetection: true,
 

@@ -1,20 +1,17 @@
+import { Close, Code, Help, Undo } from "@mui/icons-material";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import pkg from '../../../../package.json';
-import { OverwolfLink } from "../../../utils/mui/OverwolfLink";
+import { ConfirmOpenLinkExternally, OverwolfLink } from "../../../utils/mui/OverwolfLink";
 import { useTutorial } from "../welcome/AppTutorial";
 import { WELCOME_TUTORIALS } from "../welcome/tutorials/WelcomeTutorial";
-import IconButton from "@mui/material/IconButton";
-import { Close, Code, DeveloperMode, Help, Undo } from "@mui/icons-material";
-import Box from "@mui/material/Box";
-import Paper from "@mui/material/Paper";
 
 export const AppAbout = () => {
   const [noticeText, setNoticeText] = useState('');
@@ -49,7 +46,7 @@ export const AppAbout = () => {
               </Stack>
               <Stack alignItems={'end'} spacing={1}>
                 <small style={{ opacity: .8 }}>Like my work?</small>
-                <a href="https://www.buymeacoffee.com/DieserMerlin"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=DieserMerlin&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+                <ConfirmOpenLinkExternally href="https://www.buymeacoffee.com/DieserMerlin"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=DieserMerlin&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></ConfirmOpenLinkExternally>
               </Stack>
             </Stack>
           </Paper>

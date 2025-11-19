@@ -1,7 +1,7 @@
 import { TipsAndUpdates } from "@mui/icons-material";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import { HumanReadableCertainty } from 'fog-companion-web';
+import { HumanReadableCertainty } from '@diesermerlin/fog-companion-web';
 import { useRef } from "react";
 import { DetectionCause, GameStateType } from "../../../game_state/GameState";
 import { useGameState } from "../../../utils/hooks/gamestate-hook";
@@ -65,7 +65,7 @@ export const AppDetectionDisplay = () => {
   }
 
   return (
-    <Stack direction={'row'} spacing={1} alignItems={'center'} width={'100%'}>
+    <Stack direction={'row'} spacing={.5} alignItems={'center'} width={'100%'}>
       <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
         <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
           <TipsAndUpdates onClick={handleClick} />

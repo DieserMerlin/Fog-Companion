@@ -4,14 +4,14 @@
   "meta": {
     "name": "Fog Companion",
     "author": "Merlin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "minimum-overwolf-version": "0.282.0",
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
-    "icon": "icons/IconMouseOver.png",
+    "icon": "icons/IconMouseNormal.png",
     "icon_gray": "icons/IconMouseNormal.png",
     "launcher_icon": "icons/desktop-icon.ico",
-    "window_icon": "icons/IconMouseOver.png"
+    "window_icon": "icons/IconMouseNormal.png"
   },
   "permissions": [
     "Hotkeys",
@@ -199,7 +199,8 @@
     },
     "externally_connectable": {
       "matches": [
-        "https://5173--main--lab--merlinwestphal.dev.cratr.space"
+        "https://fogcompanion.com",
+        "https://*.fogcompanion.com"
       ]
     },
     "game_targeting": {

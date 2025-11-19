@@ -1,17 +1,22 @@
-import { Alarm, Close, Home, Info, Minimize, People, Person, Settings } from "@mui/icons-material";
+import { AppSnackBarHost } from "@diesermerlin/fog-companion-web";
+import { Alarm, Close, Home, Info, Logout, Minimize, People, Person, Settings } from "@mui/icons-material";
 import { TabContext, TabList } from "@mui/lab";
-import { Box, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Typography } from "@mui/material";
+import { Box, CircularProgress, FormControlLabel, GlobalStyles, IconButton, Link, Portal, Stack, Switch, Tab, Tooltip, Typography } from "@mui/material";
+import { useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from "motion/react";
 import { PropsWithChildren, useEffect, useRef, useState } from "react";
+import { useTRPC } from "../../utils/trpc/trpc";
+import { useSession } from "../../utils/trpc/use-session";
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { AppAbout } from "./about/AppAbout";
+import { LoginDialogWrapper } from "./account/LoginDialog";
 import { AppSettings } from "./settings/AppSettings";
 import { SettingsHotkey } from "./settings/AppSettingsHotkey";
+import { MainAppTab, useMainApp } from "./use-main-app";
 import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
-import { MainAppTab, useMainApp } from "./use-main-app";
-import { useSession } from "../../utils/trpc/use-session";
-import { LoginDialogWrapper } from "./account/LoginDialog";
+import { AccountView } from "./account/AccountView";
+import { WIP } from "../../utils/WIP";
 
 const MotionBox = motion(Box);
 
@@ -62,7 +67,7 @@ function AlwaysOnTopHeader() {
           })}
         >
           <span style={{ marginLeft: 10 }}>
-            <b>Fog Companion</b> <small>by Merlin</small>
+            <b>Fog Companion BETA</b> <small>by Merlin</small>
           </span>
           <span style={{ flexGrow: 1 }} />
           <small style={{ marginRight: 10, opacity: 0.6 }}>
@@ -82,7 +87,7 @@ function AlwaysOnTopHeader() {
   );
 }
 
-export const IngameApp = () => {
+export const MainApp = () => {
   const tab = useMainApp(s => s.tab);
 
   const tutorialOpen = useTutorial(s => s.tutorials.length > 0);
@@ -93,25 +98,24 @@ export const IngameApp = () => {
     (window as any).adsReady.then(res => setAdsReady(res));
   }, []);
 
-  const userName = useSession(s => s.session?.user?.mainAuth?.displayName);
-
   return (
     <BaseWindow resizable>
+      <AppSnackBarHost />
       <Stack position={'fixed'} top={0} left={0} m={0} p={0} width={'100vw'} height={'100vh'} overflow={'hidden'}>
         <TabContext value={tab}>
           <Box width={'100%'} height={HEADER_HEIGHT}></Box>
           <AlwaysOnTopHeader />
-
-          <Stack direction={'row'} pr={2} alignItems={"center"} width={'100%'} height={'100%'}>
+          <Stack direction={'row'} pr={tutorialOpen ? 0 : 2} alignItems={"center"} width={'100%'} height={'100%'}>
             <Stack m={0} p={0} overflow={"hidden"} width={"100vw"} height={'100%'} position={'relative'}>
               <TutorialsOverlay />
 
               <TabList onChange={(_, v) => useMainApp.setState({ tab: v })} variant="fullWidth" sx={{ pr: 2 }}>
                 <Tab value={MainAppTab.WELCOME} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Home /><span>Home</span></Stack>} />
                 <Tab value={MainAppTab.MODE_1V1} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Alarm /><span>Mode: 1v1</span></Stack>} />
-                <Tab value={MainAppTab.MODE_SCRIMS} disabled label={<Stack direction={'row'} spacing={1} alignItems={'center'}><People /><span>Mode: Scrims</span></Stack>} />
+                <Tooltip title="This mode is not yet available" style={{ cursor: 'not-allowed' }} placement="bottom" arrow slotProps={{ popper: { modifiers: [{ name: 'offset', options: { offset: [0, -14] } }] } }}>
+                  <Tab value={tab} style={{ opacity: .6 }} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><People /><span>Mode: Scrims</span></Stack>} />
+                </Tooltip>
                 <Tab value={MainAppTab.SETTINGS} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Settings /><span>Settings</span></Stack>} />
-                <Tab value={MainAppTab.ACCOUNT} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Person /><span>{userName ?? 'Login'}</span></Stack>} />
                 <Tab value={MainAppTab.ABOUT} label={<Stack direction={'row'} spacing={1} alignItems={'center'}><Info /><span>About</span></Stack>} />
               </TabList>
 
@@ -122,6 +126,11 @@ export const IngameApp = () => {
                       <AppWelcome />
                     </AppTabPanel>
                   )}
+                  {tab === MainAppTab.MODE_1V1 && (
+                    <AppTabPanel key="tab-1">
+                      <WIP />
+                    </AppTabPanel>
+                  )}
                   {tab === MainAppTab.SETTINGS && (
                     <AppTabPanel key="tab-3">
                       <AppSettings />
@@ -129,7 +138,7 @@ export const IngameApp = () => {
                   )}
                   {tab === MainAppTab.ACCOUNT && (
                     <AppTabPanel key="tab-4">
-                      <LoginDialogWrapper onClose={() => useMainApp.setState({ tab: MainAppTab.WELCOME })} />
+                      <LoginDialogWrapper onClose={() => useMainApp.setState({ tab: MainAppTab.WELCOME })} children={<AccountView />} />
                     </AppTabPanel>
                   )}
                   {tab === MainAppTab.ABOUT && (
@@ -142,11 +151,54 @@ export const IngameApp = () => {
             </Stack>
             {mountAds && <AdContainer key={'ad-container'} />}
           </Stack>
+          {!tutorialOpen && <LoginIndicator />}
         </TabContext>
       </Stack>
     </BaseWindow>
   );
 };
+
+const LoginIndicator = () => {
+  const sessionLoaded = useSession(s => !!s.session?.sessionId);
+
+  const displayName = useSession(s => s.session?.user?.mainAuth?.displayName || s.session?.user?.mainAuth?.username);
+  const loggedIn = !!displayName;
+
+  const trpc = useTRPC();
+  const { mutate: logout } = useMutation(trpc.sessions.logout.mutationOptions({ onSuccess: () => useSession.getState().recheck() }));
+
+  return (
+    <Stack direction={'row'} alignItems={'center'} justifyContent={'center'} fontSize={'.75em !important'} bgcolor={'background.paper'} width={'100%'} maxHeight={30} px={1} spacing={3} sx={{ opacity: .7 }}>
+      {sessionLoaded ? (
+        <>
+          <Stack direction={'row'} alignItems={'center'} spacing={1}>
+            <Person />
+            <span>
+              {loggedIn && <>Logged in as </>}
+              <Link onClick={() => useMainApp.setState({ tab: MainAppTab.ACCOUNT })}>{displayName || 'Login'}</Link>
+            </span>
+          </Stack>
+          <span style={{ flexGrow: 1 }} />
+          {loggedIn ? (
+            <Link color="error" onClick={() => logout()}>
+              <Stack direction={'row'} alignItems={'center'} spacing={.5}>
+                <span>Logout</span>
+                <Logout fontSize="small" />
+              </Stack>
+            </Link>
+          ) : <span>Login to unlock more features!</span>}
+        </>
+      ) : (
+        <Stack direction={'row'} alignItems={'center'} spacing={1} flexGrow={1}>
+          <Person />
+          <CircularProgress size={15} />
+          <small>Loading session data...</small>
+        </Stack>
+      )
+      }
+    </Stack >
+  );
+}
 
 const AdContainer = () => {
   console.log('render-ad');

@@ -13,8 +13,8 @@ export const useSession = create<{ session: Session | null, recheck: () => void 
     }
   };
 
-  recheck();
-  setInterval(recheck, 1000 * 60);
+  window.addEventListener('DOMContentLoaded', recheck)
+  setInterval(recheck, 60 * 1000);
 
   return {
     session: null,
