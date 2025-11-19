@@ -1,17 +1,18 @@
 import { Group, Help, Map, Settings, Timer, TipsAndUpdates } from "@mui/icons-material";
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Grid, Paper, Stack, Typography } from "@mui/material";
-import { PropsWithChildren, ReactElement, memo, useCallback, useState } from "react";
+import { Alert, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Grid, Link, Stack, Typography } from "@mui/material";
+import { PropsWithChildren, ReactElement, memo, useCallback } from "react";
 
+import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { INGAME_SETTINGS } from "../in_game-settings";
+import { SettingsHotkey } from "../settings/AppSettingsHotkey";
+import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
 import { AppSettingsSection, useAppSettings } from "../settings/use-app-settings";
 import { MainAppTab, useMainApp } from "../use-main-app";
-import { useTutorial } from "./AppTutorial";
-import { MODE_1V1_TUTORIAL } from "./tutorials/Mode1v1Tutorial";
-import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
-import { CALLOUT_TUTORIAL } from "./tutorials/CalloutTutorial";
-import { BACKGROUND_SETTINGS } from "../../background/background-settings";
-import { SettingsHotkey } from "../settings/AppSettingsHotkey";
 import { AppDetectionDisplay } from "./AppDetectionDisplay";
+import { useTutorial } from "./AppTutorial";
+import { CALLOUT_TUTORIAL } from "./tutorials/CalloutTutorial";
+import { MODE_1V1_TUTORIAL } from "./tutorials/Mode1v1Tutorial";
+import { WELCOME_TUTORIALS } from "./tutorials/WelcomeTutorial";
 
 /** ---------------- Primitives ---------------- */
 
@@ -103,7 +104,7 @@ const ScrimsCard = memo(() => {
       title="Mode: Scrims/Tournaments"
       img=""
     >
-      <Alert variant="outlined" severity="warning">This mode is not yet available.</Alert>
+      <Alert variant="outlined" severity="warning" style={{ height: '100%', display: 'flex', alignItems: 'center' }}>This mode is not yet available.</Alert>
     </OnboardingCard>
   );
 });
@@ -160,19 +161,19 @@ const SmartFeaturesCard = memo(() => {
           Allows the app to detect the game state using screenshots.
           Disable this if you notice problems with your performance.
         </small>
-        <Stack direction={'row'} alignItems={'center'}>
+        <Stack direction={'row'} alignItems={'center'} fontSize={'.8em'}>
           <Stack flexGrow={1}>
             <span>Auto-Detect current map</span>
             <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
           </Stack>
-          <EnableMapDetectionFeature />
+          <EnableMapDetectionFeature small />
         </Stack>
-        <Stack direction={'row'} alignItems={'center'}>
+        <Stack direction={'row'} alignItems={'center'} fontSize={'.8em'}>
           <Stack flexGrow={1}>
             <span>Auto-Detect M2 killers</span>
             <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
           </Stack>
-          <EnableKillerDetectionFeature />
+          <EnableKillerDetectionFeature small />
         </Stack>
         <span style={{ flexGrow: 1 }} />
         <AppDetectionDisplay />
@@ -199,20 +200,19 @@ export const AppWelcome = () => {
   const close = () => overwolf.windows.getMainWindow().close();
 
   return (
-    <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={3}>
+    <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={1}>
       <Stack>
         <Typography variant="h5">Welcome to Fog Companion for competitive Dead by Daylight</Typography>
-        <Typography variant="caption" style={{ opacity: .8 }}>Learn what this app can do for you:</Typography>
+        <Link variant="caption" style={{ opacity: .8 }} onClick={() => useTutorial.setState({ tutorials: WELCOME_TUTORIALS })}>Learn what this app can do for you.</Link>
       </Stack>
-
       <Grid container flexGrow={1} spacing={1} width="100%">
         <TimerCard />
         <ScrimsCard />
         <CalloutCard />
         <SmartFeaturesCard />
       </Grid>
-
-      <Stack direction={'row'} spacing={4} style={{ opacity: .75 }} alignItems={"center"}>
+      <Stack direction={'row'} spacing={4} style={{ opacity: .75 }} alignItems={"center"} width={'100%'}>
+        <span style={{ flexGrow: 1 }} />
         <FormControlLabel
           label={<Stack><span>Use this window in-game.</span><small>Disable for second-screen use.</small></Stack>}
           control={<Checkbox checked={showInGame} onChange={handleShowInGame} size="small" />}
@@ -221,6 +221,7 @@ export const AppWelcome = () => {
           label={<Stack><span>Open this window with DBD</span><small>Disable to only open manually.</small></Stack>}
           control={<Checkbox checked={openOnStartup} onChange={handleOpenOnStartup} size="small" />}
         />
+        <span style={{ flexGrow: 1 }} />
       </Stack>
     </Stack >
   );

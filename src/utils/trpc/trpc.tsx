@@ -3,8 +3,9 @@ import { createTRPCClient, httpBatchLink, httpSubscriptionLink, splitLink } from
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import { useMemo, type PropsWithChildren } from "react";
 import type { inferRouterOutputs } from "@trpc/server";
-import { AppRouter } from "@diesermerlin/fog-companion-web";
+import { AppRouter, ErrorLink } from "@diesermerlin/fog-companion-web";
 import { APP_CONFIG } from "../../AppConfig";
+import { useSession } from "./use-session";
 
 export const { TRPCProvider, useTRPC, useTRPCClient } =
   createTRPCContext<AppRouter>();
@@ -36,10 +37,11 @@ function getQueryClient() {
 
 export const trpcClient = () => createTRPCClient<AppRouter>({
   links: [
+    ErrorLink({ checkSession: () => useSession.getState().recheck() }),
     splitLink({
       condition: opts => opts.type === 'subscription',
       true: httpSubscriptionLink({
-        url: APP_CONFIG.BACKEND_URL,
+        url: APP_CONFIG.BACKEND_API_URL,
         eventSourceOptions() {
           return {
             withCredentials: true,
@@ -47,7 +49,7 @@ export const trpcClient = () => createTRPCClient<AppRouter>({
         },
       }),
       false: httpBatchLink({
-        url: APP_CONFIG.BACKEND_URL,
+        url: APP_CONFIG.BACKEND_API_URL,
         fetch(url, opts) {
           return fetch(url, { ...opts, credentials: 'include' });
         },
@@ -58,7 +60,7 @@ export const trpcClient = () => createTRPCClient<AppRouter>({
 
 export const WrapTRPC = (props: PropsWithChildren) => {
   const queryClient = getQueryClient();
-  const backendUrl = APP_CONFIG.BACKEND_URL;
+  const backendUrl = APP_CONFIG.BACKEND_API_URL;
   const client = useMemo(() => trpcClient(), [backendUrl]);
 
   return (

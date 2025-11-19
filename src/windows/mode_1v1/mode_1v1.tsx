@@ -2,7 +2,7 @@ import {
   OWHotkeys
 } from "@overwolf/overwolf-api-ts";
 
-import { Mode1v1TimerRef, RenderMode1v1Timer } from 'fog-companion-web';
+import { Mode1v1TimerRef, RenderMode1v1Timer } from '@diesermerlin/fog-companion-web';
 import { createRoot } from 'react-dom/client';
 import { AppWindow } from "../../AppWindow";
 import { kHotkeys, kWindowNames } from "../../consts";
@@ -49,27 +49,23 @@ class Mode1v1 extends AppWindow {
     const { theme } = useMode1v1Theme.getState();
     const gi = overwolf.windows.getMainWindow().gameInfo;
 
-    const percentRegex = /^\d+\%$/;
-    const pxRegex = /^\d+px$/;
-
     let width = 0, height = 0;
 
-    if (percentRegex.test(theme.data.width)) {
+    if (theme.data.size.width.mode === '%') {
       // Calculate screen percent
-      const factor = parseInt(theme.data.width.replace('%', '')) / 100;
+      const factor = theme.data.size.width.size / 100;
       if (gi) width = factor * gi.width;
     }
-    else if (pxRegex.test(theme.data.width)) {
+    else {
       // Set px
-      width = parseInt(theme.data.width.replace('px', ''));
+      width = theme.data.size.width.size
     }
-
-    if (percentRegex.test(theme.data.height)) {
-      const factor = parseInt(theme.data.height.replace('%', '')) / 100;
+    if (theme.data.size.height.mode === '%') {
+      const factor = theme.data.size.height.size / 100;
       if (gi) height = factor * gi.height;
     }
-    else if (pxRegex.test(theme.data.height)) {
-      height = parseInt(theme.data.height.replace('px', ''));
+    else {
+      height = theme.data.size.height.size;
     }
 
     if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
@@ -126,7 +122,6 @@ const Mode1v1App = () => {
         theme={theme}
         hotkeys={hotkeys}
         inMatch={inMatch}
-        names={{ opponent: '', self: '' }}
         startKillerType={startKillerType}
         startKillerText={startKillerText}
         startOnCrouch={startOnCrouch}

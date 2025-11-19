@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { AppWindow } from "../../AppWindow";
 import { kWindowNames } from "../../consts";
-import { IngameApp } from "./MainApp";
+import { MainApp } from "./MainApp";
 import { useMainApp } from './use-main-app';
 
 const FIRST_MOVE_KEY = 'movedToSecondScreen';
@@ -73,4 +73,4 @@ new Promise<boolean>(res => overwolf.windows.getCurrentWindow(_res => res(_res.w
 });
 
 const root = createRoot(document.getElementById('root')!);
-root.render(<IngameApp />);
+root.render(<MainApp />);

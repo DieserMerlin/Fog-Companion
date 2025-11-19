@@ -26,18 +26,18 @@ export const Enable1v1ModeFeature = (props: { small?: true }) => {
   );
 }
 
-export const EnableSmartFeatures = () => {
+export const EnableSmartFeatures = (props: { small?: true }) => {
   const enabled = BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures);
   const toggle = () => BACKGROUND_SETTINGS.update({ enableSmartFeatures: !enabled })
 
   return (
     <Stack direction={'row'} spacing={1} alignItems={'center'}>
-      <Switch checked={enabled} onChange={toggle} />
+      <Switch checked={enabled} onChange={toggle} size={props.small ? 'small' : undefined} />
     </Stack>
   );
 }
 
-export const EnableKillerDetectionFeature = () => {
+export const EnableKillerDetectionFeature = (props: { small?: true }) => {
   const disabled = BACKGROUND_SETTINGS.hook(s => !s.enableSmartFeatures);
 
   const enabled = BACKGROUND_SETTINGS.hook(s => !disabled && s.enableKillerDetection);
@@ -45,12 +45,12 @@ export const EnableKillerDetectionFeature = () => {
 
   return (
     <Stack direction={'row'} spacing={1} alignItems={'center'}>
-      <Switch disabled={disabled} checked={enabled} onChange={toggle} />
+      <Switch disabled={disabled} checked={enabled} onChange={toggle} size={props.small ? 'small' : undefined} />
     </Stack>
   );
 }
 
-export const EnableMapDetectionFeature = () => {
+export const EnableMapDetectionFeature = (props: { small?: true }) => {
   const disabled = BACKGROUND_SETTINGS.hook(s => !s.enableSmartFeatures);
 
   const enabled = BACKGROUND_SETTINGS.hook(s => !disabled && s.enableMapDetection);
@@ -59,7 +59,7 @@ export const EnableMapDetectionFeature = () => {
 
   return (
     <Stack direction={'row'} spacing={1} alignItems={'center'}>
-      <Switch disabled={disabled} checked={enabled} onChange={toggle} />
+      <Switch disabled={disabled} checked={enabled} onChange={toggle} size={props.small ? 'small' : undefined} />
     </Stack>
   );
 }

@@ -25,7 +25,7 @@ export const MODE_1V1_TUTORIAL: Tutorial = {
       </>
     </>
   ),
-  notice: <>Turn this feature on/off: <Enable1v1ModeFeature /></>,
+  notice: <>Turn this mode on/off: <Enable1v1ModeFeature /></>,
   steps: [
     {
       title: 'Enter 1v1 Mode',

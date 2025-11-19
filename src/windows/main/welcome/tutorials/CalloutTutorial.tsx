@@ -88,7 +88,7 @@ export const CALLOUT_TUTORIAL: Tutorial = {
           </Stack>
         </>
       ),
-      notice: <>I'm also working on feature to provide team-related graphics to all members.</>
+      notice: <>I'm also working on a feature to provide team-related graphics to all members.</>
     }
   ]
 }
