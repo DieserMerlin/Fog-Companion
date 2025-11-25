@@ -12,7 +12,7 @@ type DragEdge =
 
 // A base class for the app's foreground windows.
 // Sets the modal and drag behaviors, which are shared across the desktop and in-game windows.
-export class AppWindow {
+export abstract class AppWindow {
   protected currWindow: OWWindow;
   protected mainWindow: OWWindow;
   protected maximized: boolean = false;
@@ -21,7 +21,7 @@ export class AppWindow {
   // cache window id so we don't look it up repeatedly
   private _windowId?: string;
 
-  constructor(windowName: string) {
+  constructor(private readonly windowName: string) {
     this.currWindow = new OWWindow(windowName);
 
     // Wire anything already in the DOM
@@ -36,6 +36,19 @@ export class AppWindow {
 
     // Warm the window id cache in the background (no harm if it fails; we'll re-fetch on demand)
     this.getWindowId().catch(() => { });
+
+    window.addEventListener('close', () => {
+      this.beforeClose();
+      this.onUnfocus();
+    });
+
+    window.addEventListener('focus', () => {
+      this.onFocus();
+    });
+
+    window.addEventListener('blur', () => {
+      this.onUnfocus();
+    });
   }
 
   /** Find and wire all relevant UI elements if present (idempotent). */
@@ -158,4 +171,14 @@ export class AppWindow {
   public async setDrag(elem: HTMLElement) {
     this.currWindow.dragMove(elem);
   }
+
+  onFocus() {
+    overwolf.windows.getMainWindow().focusedWindows.push(this.windowName);
+  }
+
+  onUnfocus() {
+    overwolf.windows.getMainWindow().focusedWindows = overwolf.windows.getMainWindow().focusedWindows.filter((w) => w !== this.windowName);
+  }
+
+  public abstract beforeClose(): void | Promise<void>;
 }

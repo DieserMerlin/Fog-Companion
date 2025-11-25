@@ -61,7 +61,6 @@ const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left'
           {!!mapVariant && !!map.variants?.length && <CustomChip label="Switch Variant" hotkey={map_switch_variant} />}
           <CustomChip label="Map-Browser" hotkey={map_browser} />
         </>}
-        {!!mapVariant && !!mapVariant.credit && <CustomChip label="Graphic by" hotkey={mapVariant.credit} />}
       </Grid>
       <motion.div
         style={{

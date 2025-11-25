@@ -12,6 +12,7 @@
     "strictNullChecks": false,
     "jsx": "react-jsx",
     "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "lib": [
       "ES2020",
       "DOM"

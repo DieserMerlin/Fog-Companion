@@ -52,6 +52,9 @@ export class Callouts extends AppWindow {
     OWHotkeys.onHotkeyDown(kHotkeys.mapRight, () => useMapBrowserNavigation.getState().open());
   }
 
+  public beforeClose(): void | Promise<void> {
+  }
+
 }
 
 Callouts.instance();

@@ -4,6 +4,7 @@ import {
   OWWindow
 } from '@overwolf/overwolf-api-ts';
 
+import { Mode1v1TimerChallenge } from '@diesermerlin/fog-companion-web';
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
 import { GameState, GameStateGuesser } from '../../game_state/GameState';
@@ -12,6 +13,7 @@ import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../main/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
+import { Mode1v1ChallengeManager } from '../main/mode-1v1/mode-1v1-manager';
 
 /* ============================================================================
  * App-wide event bus
@@ -31,6 +33,7 @@ declare global {
     bus: TypedBus<AppEvents>;
     cache: { [key: string]: any };
     gameInfo: overwolf.games.RunningGameInfo | null;
+    focusedWindows: string[],
   }
 }
 
@@ -84,6 +87,12 @@ class BackgroundController {
 
     // Relay GameState guesses to the app bus.
     this.guesser.bus.on('gameState', gs => window.bus.emit('game-state', gs));
+
+    // Initialize Mode1v1ChallangeManager
+    Mode1v1ChallengeManager.Instance();
+
+    // Initialize focused windows object.
+    window.focusedWindows = [];
 
     // Begin periodic OCR (non-blocking).
     this.startOcr();
@@ -277,7 +286,7 @@ class BackgroundController {
     let last = 0;
 
     this._ocrInterval = setInterval(async () => {
-      if (lock || (Date.now() - last) < 1000) return;
+      if (lock || window.focusedWindows.length || (Date.now() - last) < 1000) return;
 
       // Skip if disabled
       const settings = BACKGROUND_SETTINGS.getValue();

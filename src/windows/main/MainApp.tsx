@@ -1,7 +1,7 @@
 import { AppSnackBarHost } from "@diesermerlin/fog-companion-web";
 import { Alarm, Close, Home, Info, Logout, Minimize, People, Person, Settings } from "@mui/icons-material";
 import { TabContext, TabList } from "@mui/lab";
-import { Box, CircularProgress, FormControlLabel, GlobalStyles, IconButton, Link, Portal, Stack, Switch, Tab, Tooltip, Typography } from "@mui/material";
+import { Box, CircularProgress, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Tooltip, Typography } from "@mui/material";
 import { useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from "motion/react";
 import { PropsWithChildren, useEffect, useRef, useState } from "react";
@@ -9,14 +9,14 @@ import { useTRPC } from "../../utils/trpc/trpc";
 import { useSession } from "../../utils/trpc/use-session";
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { AppAbout } from "./about/AppAbout";
+import { AccountView } from "./account/AccountView";
 import { LoginDialogWrapper } from "./account/LoginDialog";
+import { MainMode1v1View } from "./mode-1v1/MainMode1v1View";
 import { AppSettings } from "./settings/AppSettings";
 import { SettingsHotkey } from "./settings/AppSettingsHotkey";
 import { MainAppTab, useMainApp } from "./use-main-app";
 import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
-import { AccountView } from "./account/AccountView";
-import { WIP } from "../../utils/WIP";
 
 const MotionBox = motion(Box);
 
@@ -128,7 +128,7 @@ export const MainApp = () => {
                   )}
                   {tab === MainAppTab.MODE_1V1 && (
                     <AppTabPanel key="tab-1">
-                      <WIP />
+                      <MainMode1v1View />
                     </AppTabPanel>
                   )}
                   {tab === MainAppTab.SETTINGS && (

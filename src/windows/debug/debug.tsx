@@ -39,6 +39,9 @@ class Debug extends AppWindow {
 
     return this._instance;
   }
+
+  public beforeClose(): void | Promise<void> {
+  }
 }
 
 Debug.instance();

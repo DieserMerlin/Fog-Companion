@@ -4,6 +4,8 @@ import { MotionConfig } from "motion/react";
 import React from "react";
 import { CleanCss, motionConfig, theme } from "@diesermerlin/fog-companion-web";
 import { WrapTRPC } from "../trpc/trpc";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 
 const bodyTransparentCss = `
 body {
@@ -278,12 +280,14 @@ export const BaseWindow = (props: PropsWithChildren<{ transparent?: boolean, ful
       }} id="header" />}
       <MotionConfig {...motionConfig}>
         <ThemeProvider theme={theme}>
-          <WrapTRPC>
-            <CssBaseline />
-            <GlobalStyles styles={CleanCss} />
-            {props.transparent && <GlobalStyles styles={bodyTransparentCss} />}
-            {props.children}
-          </WrapTRPC>
+          <LocalizationProvider dateAdapter={AdapterMoment}>
+            <WrapTRPC>
+              <CssBaseline />
+              <GlobalStyles styles={CleanCss} />
+              {props.transparent && <GlobalStyles styles={bodyTransparentCss} />}
+              {props.children}
+            </WrapTRPC>
+          </LocalizationProvider>
         </ThemeProvider>
       </MotionConfig>
     </ErrorBoundary>
