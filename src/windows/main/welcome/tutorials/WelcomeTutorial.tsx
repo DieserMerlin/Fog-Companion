@@ -15,7 +15,9 @@ export const WELCOME_TUTORIAL: Tutorial = {
   ),
   notice: 'You can skip the tutorial if you want',
   steps: [],
-  media: { type: 'image', position: 'center', src: '/img/Logo.png', fit: 'contain' },
+  media: {
+    type: 'image', position: 'center', src: '/img/Logo.png', fit: 'contain'
+  },
   buttonTexts: { next: "Let's go 😎" }
 }
 

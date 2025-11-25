@@ -11,6 +11,11 @@ import { useGameState } from "../../utils/hooks/gamestate-hook";
 import { useHotkeys } from "../../utils/hooks/hotkey-hook";
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { MODE_1V1_SETTINGS, useMode1v1Theme } from "./mode_1v1-settings";
+import { Mode1v1ChallengeManager } from "../main/mode-1v1/mode-1v1-manager";
+import { MODE_1V1_STATE } from "./use-mode-1v1-state";
+import { useCurrent1v1Challenge } from "./use-current-1v1-challenge";
+import { useEffect, useMemo, useRef } from "react";
+import stringify from 'json-stringify-deterministic';
 
 
 class Mode1v1 extends AppWindow {
@@ -34,7 +39,12 @@ class Mode1v1 extends AppWindow {
     api.switchMode(MODE_1V1_SETTINGS.getValue().selected);
 
     this.unsubscribeListener?.();
-    this.unsubscribeListener = MODE_1V1_SETTINGS.hook.subscribe(s => api.switchMode(s.selected));
+
+    const unsubscribeHook = MODE_1V1_SETTINGS.hook.subscribe(s => api.switchMode(s.selected));
+
+    this.unsubscribeListener = () => {
+      unsubscribeHook();
+    };
   }
 
   public static instance() {
@@ -96,6 +106,10 @@ class Mode1v1 extends AppWindow {
       this.timerApi[e.button === 'left' ? 'handleM1' : 'handleM2']();
     })
   }
+
+  public beforeClose(): void | Promise<void> {
+    this.unsubscribeListener?.();
+  }
 }
 
 Mode1v1.instance();
@@ -105,7 +119,7 @@ const Mode1v1App = () => {
   const hotkeys = useHotkeys();
 
   const inMatch = useGameState(s => s.state.type === GameStateType.MATCH);
-  const startKillerType = useGameState(s => s.state.killer?.start?.m2 ? 'M2' : 'M1'); // TODO allow multiple
+  const startKillerType = useGameState(s => s.state.killer?.start?.m2 ? 'M2' : 'M1');
   const startKillerText = useGameState(s => s.state.killer?.start?.label);
 
   const startOnCrouch = MODE_1V1_SETTINGS.hook(s => s.startSurvOnCrouch);
@@ -114,11 +128,30 @@ const Mode1v1App = () => {
   const showHotkeys = MODE_1V1_SETTINGS.hook(s => s.showHotkeys);
   const showMs = MODE_1V1_SETTINGS.hook(s => s.showMs);
 
+  const apiRef = useRef<Mode1v1TimerRef>(null);
+
+  const challenge = useCurrent1v1Challenge();
+  const stringifiedChallenge = stringify(challenge);
+
+  // tracks the last "persisted" played state to avoid re-saving same data
+  const lastPersistedPlayedRef = useRef<string | null>(null);
+
+  // whenever DB / external challenge changes, sync timer + "persisted" baseline
+  useEffect(() => {
+    if (!stringifiedChallenge) return;
+    const parsed = JSON.parse(stringifiedChallenge);
+
+    // this is now considered the authoritative persisted state
+    lastPersistedPlayedRef.current = stringify(parsed.played ?? null);
+
+    apiRef.current?.setChallenge(parsed);
+  }, [stringifiedChallenge]);
+
   return (
     <BaseWindow fullWindowDrag transparent>
       <RenderMode1v1Timer
         key={'mode-1v1-timer-app'}
-        ref={api => Mode1v1.instance().setTimerApi(api)}
+        ref={api => Mode1v1.instance().setTimerApi((apiRef.current = api))}
         theme={theme}
         hotkeys={hotkeys}
         inMatch={inMatch}
@@ -130,11 +163,27 @@ const Mode1v1App = () => {
         showHotkeys={showHotkeys}
         showMs={showMs}
         bg="transparent"
-        onState={console.log}
+        onState={state => {
+          MODE_1V1_STATE.update({ state });
+
+          const nextChallenge = state.challenge;
+          if (!nextChallenge) return;
+
+          const nextPlayedKey = stringify(nextChallenge.played ?? null);
+
+          // if the timer is just echoing what we already consider persisted, do nothing
+          if (nextPlayedKey === lastPersistedPlayedRef.current) return;
+
+          if (!state.running) {
+            // we're about to persist this; update the baseline first
+            lastPersistedPlayedRef.current = nextPlayedKey;
+            Mode1v1ChallengeManager.Instance().updateChallenge(nextChallenge);
+          }
+        }}
       />
     </BaseWindow>
   );
-}
+};
 
 const root = createRoot(document.getElementById('root')!);
 root.render(<Mode1v1App />);

@@ -14,12 +14,16 @@ export const useMapBrowserNavigation = create<{
 }>((set, get) => {
   const dir = () => useMapDir.getState().realms;
 
+  const isOpen = () => CALLOUT_SETTINGS.getValue().browser;
+
   return {
     selectedRealmIndex: 0,
     selectedMapIndex: 0,
     realmOpen: false,
 
     next: () => {
+      if (!isOpen()) return;
+
       const _dir = dir();
       const realms = !!_dir && Object.keys(_dir);
 
@@ -52,6 +56,8 @@ export const useMapBrowserNavigation = create<{
     },
 
     previous: () => {
+      if (!isOpen()) return;
+    
       const _dir = dir();
       const realms = !!_dir && Object.keys(_dir);
 

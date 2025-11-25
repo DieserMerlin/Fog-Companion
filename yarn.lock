@@ -226,10 +226,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@diesermerlin/fog-companion-web@^0.1.1":
-  version "0.1.1"
-  resolved "https://npm.pkg.github.com/download/@diesermerlin/fog-companion-web/0.1.1/23423d0e3171358144271ecbd8acc64194248d94#23423d0e3171358144271ecbd8acc64194248d94"
-  integrity sha512-PpbpxfWCJ/cvasMrVkEPVu4NvcRi6EOhc857w2tCtN4Iu3HIF0/r6B3v8p6EMpaCY9JcsPRF3O8IWP9NDeL4fQ==
+"@diesermerlin/fog-companion-web@^0.1.6":
+  version "0.1.6"
+  resolved "https://npm.pkg.github.com/download/@diesermerlin/fog-companion-web/0.1.6/fb32e4ff059c838855369d6b8dcb354a2407e62e#fb32e4ff059c838855369d6b8dcb354a2407e62e"
+  integrity sha512-pcxn7nylmM0d3THz3Xauu8IbgjRNq9EVzzeoZpfZFTZcaA67F9/868PIyizdBkCLBXdCYZ3cgpnWbQ81yDHD9A==
   dependencies:
     "@discordjs/rest" "^2.6.0"
     "@emotion/react" "^11.14.0"
@@ -913,6 +913,13 @@
   dependencies:
     "@babel/runtime" "^7.28.4"
 
+"@mui/types@^7.4.8":
+  version "7.4.8"
+  resolved "https://registry.yarnpkg.com/@mui/types/-/types-7.4.8.tgz#0c1829353cd7d196be9ac0332a30cdd2792f3558"
+  integrity sha512-ZNXLBjkPV6ftLCmmRCafak3XmSn8YV0tKE/ZOhzKys7TZXUiE0mZxlH8zKDo6j6TTUaDnuij68gIG+0Ucm7Xhw==
+  dependencies:
+    "@babel/runtime" "^7.28.4"
+
 "@mui/types@~7.2.15":
   version "7.2.24"
   resolved "https://registry.yarnpkg.com/@mui/types/-/types-7.2.24.tgz#5eff63129d9c29d80bbf2d2e561bd0690314dec2"
@@ -942,6 +949,31 @@
     prop-types "^15.8.1"
     react-is "^19.1.1"
 
+"@mui/utils@^7.3.5":
+  version "7.3.5"
+  resolved "https://registry.yarnpkg.com/@mui/utils/-/utils-7.3.5.tgz#77f3e2b83454bbd47877c73b04cd804f490bf028"
+  integrity sha512-jisvFsEC3sgjUjcPnR4mYfhzjCDIudttSGSbe1o/IXFNu0kZuR+7vqQI0jg8qtcVZBHWrwTfvAZj9MNMumcq1g==
+  dependencies:
+    "@babel/runtime" "^7.28.4"
+    "@mui/types" "^7.4.8"
+    "@types/prop-types" "^15.7.15"
+    clsx "^2.1.1"
+    prop-types "^15.8.1"
+    react-is "^19.2.0"
+
+"@mui/x-date-pickers@^8.19.0":
+  version "8.19.0"
+  resolved "https://registry.yarnpkg.com/@mui/x-date-pickers/-/x-date-pickers-8.19.0.tgz#a4e082fe39811aef93c029024dd2b6cd4b435b2d"
+  integrity sha512-TQ4FsGUsiGJVs+Ie4q7nHXUmFqZADXL/1hVtZpOKsdr3WQXwpX7C5YmeakZGFR2NZnuv4snFj+WTee3kgyFbyQ==
+  dependencies:
+    "@babel/runtime" "^7.28.4"
+    "@mui/utils" "^7.3.5"
+    "@mui/x-internals" "8.19.0"
+    "@types/react-transition-group" "^4.4.12"
+    clsx "^2.1.1"
+    prop-types "^15.8.1"
+    react-transition-group "^4.4.5"
+
 "@mui/x-internals@8.14.0":
   version "8.14.0"
   resolved "https://registry.yarnpkg.com/@mui/x-internals/-/x-internals-8.14.0.tgz#5d82a9a72a6b5dd527dd00a176ee725df5e960d9"
@@ -949,6 +981,16 @@
   dependencies:
     "@babel/runtime" "^7.28.4"
     "@mui/utils" "^7.3.3"
+    reselect "^5.1.1"
+    use-sync-external-store "^1.6.0"
+
+"@mui/x-internals@8.19.0":
+  version "8.19.0"
+  resolved "https://registry.yarnpkg.com/@mui/x-internals/-/x-internals-8.19.0.tgz#256c0abb5abe3c25b7125cbbdaebfc3c5dc3a9ef"
+  integrity sha512-mMmiyJAN5fW27srXJjhXhXJa+w2xGO45rwcjws6OQc9rdXGdJqRXhBwJd+OT7J1xwSdFIIUhjZRTz1KAfCSGBg==
+  dependencies:
+    "@babel/runtime" "^7.28.4"
+    "@mui/utils" "^7.3.5"
     reselect "^5.1.1"
     use-sync-external-store "^1.6.0"
 
@@ -2112,6 +2154,16 @@ detect-europe-js@^0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/detect-europe-js/-/detect-europe-js-0.1.2.tgz#aa76642e05dae786efc2e01a23d4792cd24c7b88"
   integrity sha512-lgdERlL3u0aUdHocoouzT10d9I89VVhk0qNRmll7mXdGfJT1/wqZ2ZLA4oJAjeACPY5fT1wsbq2AT+GkuInsow==
+
+dexie-react-hooks@^4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/dexie-react-hooks/-/dexie-react-hooks-4.2.0.tgz#33d8a64c79e1e2067b9b3c4fe52367fbb6b36450"
+  integrity sha512-u7KqTX9JpBQK8+tEyA9X0yMGXlSCsbm5AU64N6gjvGk/IutYDpLBInMYEAEC83s3qhIvryFS+W+sqLZUBEvePQ==
+
+dexie@^4.2.1:
+  version "4.2.1"
+  resolved "https://registry.yarnpkg.com/dexie/-/dexie-4.2.1.tgz#70d111ae8d2dabf53f424fca79f6f918c407e6db"
+  integrity sha512-Ckej0NS6jxQ4Po3OrSQBFddayRhTCic2DoCAG5zacOfOVB9P2Q5Xc5uL/nVa7ZVs+HdMnvUPzLFCB/JwpB6Csg==
 
 diff@^4.0.1:
   version "4.0.2"
@@ -3294,6 +3346,11 @@ mkdirp@^1.0.4:
   resolved "https://registry.yarnpkg.com/mkdirp/-/mkdirp-1.0.4.tgz#3eb5ed62622756d79a5f0e2a221dfebad75c2f7e"
   integrity sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==
 
+moment@^2.30.1:
+  version "2.30.1"
+  resolved "https://registry.yarnpkg.com/moment/-/moment-2.30.1.tgz#f8c91c07b7a786e30c59926df530b4eac96974ae"
+  integrity sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==
+
 monaco-editor@^0.54.0:
   version "0.54.0"
   resolved "https://registry.yarnpkg.com/monaco-editor/-/monaco-editor-0.54.0.tgz#c0d6ebb46b83f1bef6f67f6aa471e38ba7ef8231"
@@ -3737,7 +3794,7 @@ react-is@^16.13.1, react-is@^16.7.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
   integrity sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
 
-react-is@^19.0.0, react-is@^19.1.1:
+react-is@^19.0.0, react-is@^19.1.1, react-is@^19.2.0:
   version "19.2.0"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.2.0.tgz#ddc3b4a4e0f3336c3847f18b806506388d7b9973"
   integrity sha512-x3Ax3kNSMIIkyVYhWPyO09bu0uttcAIoecO/um/rKGQ4EltYWVYtyiGkS/3xMynrbVQdS69Jhlv8FXUEZehlzA==

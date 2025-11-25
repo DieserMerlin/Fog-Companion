@@ -221,7 +221,8 @@ const MediaPane = memo((props: { media?: TutorialStep['media'] }) => {
               loading="eager"
               sx={{
                 position: 'absolute', inset: 0, width: '100%', height: '100%',
-                objectFit: 'cover', objectPosition: props.media!.position,
+                objectFit: props.media.fit || 'cover',
+                objectPosition: props.media!.position,
                 opacity: active === 0 ? 1 : 0,
                 transition: 'opacity 300ms ease',
                 willChange: 'opacity',
@@ -259,7 +260,7 @@ const MediaPane = memo((props: { media?: TutorialStep['media'] }) => {
               loading="eager"
               sx={{
                 position: 'absolute', inset: 0, width: '100%', height: '100%',
-                objectFit: 'cover', objectPosition: props.media!.position,
+                objectFit: props.media.fit, objectPosition: props.media!.position,
                 // no transition -> no fade
                 pointerEvents: 'none',
                 backfaceVisibility: 'hidden',

@@ -1,6 +1,6 @@
 import { Group, Help, Map, Settings, Timer, TipsAndUpdates } from "@mui/icons-material";
 import { Alert, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Grid, Link, Stack, Typography } from "@mui/material";
-import { PropsWithChildren, ReactElement, memo, useCallback } from "react";
+import { PropsWithChildren, ReactElement, ReactNode, memo, useCallback } from "react";
 
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { INGAME_SETTINGS } from "../in_game-settings";
@@ -18,7 +18,7 @@ import { WELCOME_TUTORIALS } from "./tutorials/WelcomeTutorial";
 
 const OnboardingCard = memo((
   props: PropsWithChildren<{
-    title: string;
+    title: string | ReactNode;
     img: string;
     icon: ReactElement;
     onSettings?: () => void;
@@ -151,7 +151,7 @@ const SmartFeaturesCard = memo(() => {
   return (
     <OnboardingCard
       icon={<TipsAndUpdates />}
-      title="Smart Features"
+      title={<Stack direction={'row'} spacing={1} alignItems={'center'}><span>Smart Features</span><Chip size="small" color="warning" label="EXPERIMENTAL" /></Stack>}
       enableDisable={<EnableSmartFeatures />}
       enabled={BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures)}
       img=""

@@ -64,6 +64,9 @@ class MainWindow extends AppWindow {
     if (!this._instances[windowName]) this._instances[windowName] = new MainWindow(windowName);
     return this._instances[windowName];
   }
+
+  public beforeClose(): void | Promise<void> {
+  }
 }
 
 new Promise<boolean>(res => overwolf.windows.getCurrentWindow(_res => res(_res.window.name === kWindowNames.mainDesktop))).then(res => {

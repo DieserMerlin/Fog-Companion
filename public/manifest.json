@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fog Companion",
     "author": "Merlin",
-    "version": "1.0.1",
+    "version": "1.0.5",
     "minimum-overwolf-version": "0.282.0",
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
@@ -82,22 +82,22 @@
       "map_browser_up": {
         "title": "Callout-Map Browser: Navigate Up",
         "action-type": "custom",
-        "default": "W"
+        "default": "Alt+W"
       },
       "map_browser_down": {
         "title": "Callout-Map Browser: Navigate Down",
         "action-type": "custom",
-        "default": "S"
+        "default": "Alt+S"
       },
       "map_browser_left": {
         "title": "Callout-Map Browser: Navigate Back",
         "action-type": "custom",
-        "default": "A"
+        "default": "Alt+A"
       },
       "map_browser_right": {
         "title": "Callout-Map Browser: Navigate Forward",
         "action-type": "custom",
-        "default": "D"
+        "default": "Alt+D"
       }
     },
     "force_browser": "user",
