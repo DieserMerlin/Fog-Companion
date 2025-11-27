@@ -84,18 +84,8 @@ const CurrentGame = () => {
   const isCommittable = !!current && !!currentGame && !isRunning && (!!currentGame.kllrTime || !!currentGame.survTime);
   const currentGameFinished = !currentGame || !!currentGame.kllrTime || !!currentGame.survTime;
 
-
-  const addGame = (challenge: Mode1v1TimerChallenge) => {
-    challenge.played.push({
-      killer: null,
-      survTime: 0,
-      kllrTime: 0
-    });
-    manager.updateChallenge(challenge);
-  }
-
   useEffect(() => {
-    if (current && (currentGameFinished || !currentGame)) addGame(current);
+    if (current && (currentGameFinished || !currentGame)) Mode1v1ChallengeManager.Instance().addGame(current);
   }, [current?.challengeId]);
 
   return (
@@ -120,7 +110,7 @@ const CurrentGame = () => {
             <SyncIndicator challenge={current} />
           </Stack>
           <Stack spacing={.5}>
-            <Button startIcon={<ArrowForwardIos />} onClick={() => addGame(current)} disabled={!currentGameFinished} color="primary" variant="contained" size="small" sx={{ height: '100%' }}>
+            <Button startIcon={<ArrowForwardIos />} onClick={() => Mode1v1ChallengeManager.Instance().addGame(current)} disabled={!currentGameFinished} color="primary" variant="contained" size="small" sx={{ height: '100%' }}>
               <Stack spacing={-.5}>
                 <small><b>New game</b></small>
                 <small>in current challenge</small>

@@ -35,7 +35,7 @@
     "zip-a-folder": "^0.0.12"
   },
   "dependencies": {
-    "@diesermerlin/fog-companion-web": "^0.1.6",
+    "@diesermerlin/fog-companion-web": "^0.1.17",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@monaco-editor/react": "^4.8.0-rc.2",
