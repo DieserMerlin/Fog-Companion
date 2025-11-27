@@ -26,7 +26,7 @@ class Mode1v1 extends AppWindow {
     super(kWindowNames.mode_1v1);
 
     this.setHotkeyBehavior();
-    useMode1v1Theme.subscribe((curr, prev) => curr.theme.hash !== prev.theme.hash && this.resize());
+    useMode1v1Theme.subscribe((curr, prev) => stringify(curr.theme) !== stringify(prev.theme) && this.resize());
     this.resize();
   }
 
@@ -149,7 +149,7 @@ const Mode1v1App = () => {
 
   return (
     <BaseWindow fullWindowDrag transparent>
-      <RenderMode1v1Timer
+      {challenge && <RenderMode1v1Timer
         key={'mode-1v1-timer-app'}
         ref={api => Mode1v1.instance().setTimerApi((apiRef.current = api))}
         theme={theme}
@@ -180,7 +180,8 @@ const Mode1v1App = () => {
             Mode1v1ChallengeManager.Instance().updateChallenge(nextChallenge);
           }
         }}
-      />
+        onRequestChallenge={() => challenge}
+      />}
     </BaseWindow>
   );
 };

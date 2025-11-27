@@ -45,7 +45,7 @@ export class Mode1v1ChallengeManager {
     const challenge: Mode1v1TimerChallenge = {
       challengeId: self.crypto.randomUUID(),
       names: { opponent: '', self: useSession.getState().session?.user?.mainAuth?.displayName || '' },
-      played: [{ kllrTime: 0, survTime: 0 }],
+      played: [{ gameId: self.crypto.randomUUID(), playedAt: now, kllrTime: 0, survTime: 0 }],
       startedAt: now,
       continuedAt: now,
       updatedAt: now,
@@ -76,6 +76,16 @@ export class Mode1v1ChallengeManager {
     });
   }
 
+  async addGame(challenge: Mode1v1TimerChallenge, auto?: true) {
+    const currentGame = challenge.played[challenge.played.length - 1];
+
+    const condition = auto ? (currentGame.kllrTime && currentGame.survTime) : (currentGame.kllrTime || currentGame.survTime);
+    if (!currentGame || condition) challenge.played.push({ gameId: self.crypto.randomUUID(), playedAt: Date.now(), kllrTime: 0, survTime: 0 });
+
+    await this.updateChallenge(challenge);
+    return challenge;
+  }
+
   async currentChallenge() {
     return await this.appDb.mode1v1Challenges.orderBy('startedAt').reverse().first();
   }
@@ -89,7 +99,7 @@ export class Mode1v1ChallengeManager {
     if (this.syncTimeout) clearTimeout(this.syncTimeout);
 
     try {
-      if (ACCOUNT_SETTINGS.getValue().sync1v1Challenges) {
+      if (ACCOUNT_SETTINGS.getValue().sync1v1Challenges && !!useSession.getState().session?.user) {
         const update = [] as Mode1v1TimerChallenge[];
 
         await AppDB.transaction('r', [AppDB.mode1v1Challenges], async () => {
@@ -97,14 +107,25 @@ export class Mode1v1ChallengeManager {
             if (obj.syncedAt >= obj.updatedAt) return;
             update.push(obj);
           });
-        })
+        });
+
+        // Fix old challenges
+        for (const challenge of update) {
+          let updated = false;
+          if (!challenge.syncedAt) { challenge.syncedAt = 1; updated = true; }
+          challenge.played.forEach(p => {
+            if (!p.playedAt) { p.playedAt = Date.now(); updated = true; }
+            if (!p.gameId) { p.gameId = self.crypto.randomUUID(); updated = true; }
+          })
+          if (updated)
+            await this.updateChallenge(challenge);
+        }
 
         for (const challenge of update) {
           try {
             MODE_1V1_SYNC.update({ syncing: challenge.challengeId });
             await new Promise<void>(res => setTimeout(res, 1000));
 
-            if (!challenge.syncedAt) challenge.syncedAt = 1;
             const updated = await trpcClient().mode1v1.challenges.sync.mutate(challenge);
 
             await AppDB.transaction('rw', [AppDB.mode1v1Challenges], async () => {

@@ -7,7 +7,7 @@ import {
 import { Mode1v1TimerChallenge } from '@diesermerlin/fog-companion-web';
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
-import { GameState, GameStateGuesser } from '../../game_state/GameState';
+import { DetectionCertaintyWeight, GameState, GameStateGuesser, GameStateType } from '../../game_state/GameState';
 import { AnyScanArea, OcrAreasResult, performOcrAreas, performOcrAreasOnImage } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
@@ -96,6 +96,9 @@ class BackgroundController {
 
     // Begin periodic OCR (non-blocking).
     this.startOcr();
+
+    // Begin Mode1v1 detection
+    this.handleMode1v1KillerGuesses();
 
     // Apply initial background settings and register hotkeys.
     this.settingsUpdate(BACKGROUND_SETTINGS.getValue());
@@ -483,6 +486,31 @@ class BackgroundController {
     this.guesser.assumeInMatch();
 
     return null;
+  }
+
+  private lastState: GameState = null;
+  handleMode1v1KillerGuesses() {
+    this.guesser.bus.on('gameState', async gs => {
+      const lastState = this.lastState;
+      this.lastState = gs;
+
+      if (lastState?.type === GameStateType.MATCH && gs.type !== GameStateType.MATCH) {
+        const challenge = await Mode1v1ChallengeManager.Instance().currentChallenge();
+        await Mode1v1ChallengeManager.Instance().addGame(challenge, true);
+      }
+
+      if (!gs.killer) return;
+
+      const challenge = await Mode1v1ChallengeManager.Instance().currentChallenge();
+      const game = challenge?.played[(challenge?.played?.length || 1) - 1];
+      if (!game) return;
+
+      if (DetectionCertaintyWeight[gs.killer.certainty] > (DetectionCertaintyWeight[game.killerCertainty] || 0)) {
+        game.killer = gs.killer.name
+        game.killerCertainty = gs.killer.certainty;
+        await Mode1v1ChallengeManager.Instance().updateChallenge(challenge);
+      }
+    });
   }
 }
 
