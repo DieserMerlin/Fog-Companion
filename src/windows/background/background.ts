@@ -8,7 +8,7 @@ import { Mode1v1TimerRef } from '@diesermerlin/fog-companion-web';
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
 import { DetectionCertaintyWeight, GameState, GameStateGuesser, GameStateType } from '../../game_state/GameState';
-import { AnyScanArea, OcrAreasResult, performOcrAreas, performOcrAreasOnImage } from '../../utils/ocr/area-ocr';
+import { AnyScanArea, OcrAreasResult, captureScreenshotImage, performOcrAreas, performOcrAreasOnImage } from '../../utils/ocr/area-ocr';
 import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../main/in_game-settings';
@@ -85,8 +85,11 @@ class BackgroundController {
     // Disable debug windows on app start
     BACKGROUND_SETTINGS.update({ enableOcrDebug: false, ocrDebugBreakOn: null });
 
-    // Relay GameState guesses to the app bus.
-    this.guesser.bus.on('gameState', gs => window.bus.emit('game-state', gs));
+    // Relay GameState guesses to the app bus and cache latest snapshot.
+    this.guesser.bus.on('gameState', gs => {
+      window.cache.gameState = gs;
+      window.bus.emit('game-state', gs);
+    });
 
     // Initialize Mode1v1ChallangeManager
     Mode1v1Manager.Instance();
@@ -288,7 +291,7 @@ class BackgroundController {
     let lock = false;
     let last = 0;
 
-    this._ocrInterval = setInterval(async () => {
+    const runCycle = async () => {
       if (lock || window.focusedWindows.length || (Date.now() - last) < 1000) return;
 
       // Skip if disabled
@@ -332,16 +335,7 @@ class BackgroundController {
         ] as const;
 
         // 1) Capture one screenshot and reuse it for all stages
-        const img = await (async () => {
-          // reuse helper from area-ocr.ts via a tiny indirection
-          const mod = await import("../../utils/ocr/area-ocr");
-          // not exported, so call performOcrAreas([]) to force capture? We expose a helper instead:
-          // we added performOcrAreasOnImage(img, areas), so capture here with a private helper:
-          const _imgGetter = (mod as any).__captureScreenshotImage || (mod as any).captureScreenshotImage || null;
-          if (_imgGetter) return await _imgGetter();
-          // Fallback — call performOcrAreas to force capture; if null return
-          return null;
-        })();
+        const img = await captureScreenshotImage();
 
         if (!img) {
           // Hard fallback to old path
@@ -386,7 +380,16 @@ class BackgroundController {
         last = Date.now();
         lock = false;
       }
-    }, 50);
+    };
+
+    const schedule = () => {
+      this._ocrInterval = setTimeout(async () => {
+        await runCycle();
+        schedule();
+      }, 50);
+    };
+
+    schedule();
   }
 
   /* ------------------------------------------------------------------------

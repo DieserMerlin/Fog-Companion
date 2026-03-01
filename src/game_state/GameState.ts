@@ -46,7 +46,44 @@ export const DetectionCertaintyWeight: { [key in DetectionCertainty]: number } =
   [DetectionCertainty.CONFIRMED]: 40,
 }
 
-const isEqual = (a: any, b: any) => a === b;
+const isEqualKiller = (a?: GameState['killer'], b?: GameState['killer']) => {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  return a.name === b.name && a.certainty === b.certainty;
+};
+
+const isEqualMap = (a?: GameState['map'], b?: GameState['map']) => {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  if (
+    a.name !== b.name ||
+    a.realm !== b.realm ||
+    a.mapFile !== b.mapFile ||
+    a.fullPath !== b.fullPath ||
+    a.imageUrl !== b.imageUrl
+  ) return false;
+
+  const aVariants = a.variants || [];
+  const bVariants = b.variants || [];
+  if (aVariants.length !== bVariants.length) return false;
+  for (let i = 0; i < aVariants.length; i++) {
+    if (aVariants[i].mapFile !== bVariants[i].mapFile || aVariants[i].realm !== bVariants[i].realm) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const isEqual = (a: GameState, b: GameState) => {
+  if (a === b) return true;
+  return (
+    a?.type === b?.type &&
+    a?.detectedBy === b?.detectedBy &&
+    a?.killerGuess === b?.killerGuess &&
+    isEqualKiller(a?.killer, b?.killer) &&
+    isEqualMap(a?.map, b?.map)
+  );
+};
 
 // ===== GameStateGuesser (now delegates to MapResolver) =====
 

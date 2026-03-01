@@ -6,21 +6,42 @@ import { MODE_1V1_THEME } from "../../windows/mode_1v1/mode_1v1-settings";
 
 type Session = RouterOuputs['sessions']['current'];
 
+const isBackgroundWindow = () => window.location.pathname.toLowerCase().includes('background');
+
+const getMainWindow = () => overwolf.windows.getMainWindow() as Window & {
+  cache?: Record<string, unknown>;
+  bus?: {
+    on?: (event: string, callback: (payload?: unknown) => void) => void;
+    emit?: (event: string, payload?: unknown) => void;
+  };
+};
+
 export const useSession = create<{ session: Session | null, recheck: () => void }>(set => {
+  const mainWindow = getMainWindow();
+  const initialSession = (mainWindow.cache?.sessionSnapshot as Session | null | undefined) || null;
   const recheck = async () => {
     try {
       const data = await trpcClient().sessions.current.query();
       set({ session: data });
+      if (mainWindow.cache) mainWindow.cache.sessionSnapshot = data;
+      mainWindow.bus?.emit?.('session-updated', data);
     } catch (e) {
       console.error(e);
     }
   };
 
-  window.addEventListener('DOMContentLoaded', recheck)
-  setInterval(recheck, 60 * 1000);
+  mainWindow.bus?.on?.('session-updated', payload => set({ session: (payload as Session | null) || null }));
+
+  if (isBackgroundWindow()) {
+    mainWindow.bus?.on?.('session-recheck', () => recheck());
+    recheck();
+    setInterval(recheck, 60 * 1000);
+  } else {
+    mainWindow.bus?.emit?.('session-recheck');
+  }
 
   return {
-    session: null,
+    session: initialSession,
     recheck
   }
 });

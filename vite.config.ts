@@ -27,9 +27,9 @@ const isDevMode = process.env.NODE_ENV !== 'production';
 
 export default defineConfig({
   // Make sure the Overwolf runtime always sees dev-friendly code
-  css: { devSourcemap: true },
+  css: { devSourcemap: isDevMode },
   esbuild: {
-    sourcemap: true,
+    sourcemap: isDevMode,
   },
   define: {
     'import.meta.env.DEV': isDevMode,
@@ -42,8 +42,8 @@ export default defineConfig({
     outDir: r('dist'),
     emptyOutDir: true,
 
-    sourcemap: 'inline',
-    minify: false,
+    sourcemap: isDevMode ? 'inline' : true,
+    minify: isDevMode ? false : 'esbuild',
     target: 'esnext',
 
     rollupOptions: {

@@ -102,7 +102,7 @@ export type OcrAreasResult = Record<string, OCRSingleResult | PureBlackResult>;
 
 /* ---------------- NEW: one-shot in-memory screenshot ---------------- */
 
-async function captureScreenshotImage(): Promise<HTMLImageElement | null> {
+export async function captureScreenshotImage(): Promise<HTMLImageElement | null> {
   const shot = await new Promise<overwolf.media.FileResult>((resolve) =>
     overwolf.media.takeScreenshot(resolve)
   );
@@ -182,8 +182,7 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
         }
 
         // IMPORTANT: pass Canvas directly — no base64 re-encode
-        const blob = await canvasToBlob(canvas);               // NEW
-        const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
+        const { data: ocr } = await scheduler!.addJob("recognize", canvas as any, params);
 
         const text = (ocr.text || "").trim();
         results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
@@ -202,8 +201,8 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
  */
 export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnyScanArea[]): Promise<OcrAreasResult> {
   const results: OcrAreasResult = {};
-  // @ts-expect-error
-  if (areas.some(a => (a as OcrScanArea).type !== "pure-black")) await ensureScheduler();
+  const hasOcrAreas = areas.some(a => (a as PureBlackScanArea).type !== "pure-black");
+  if (hasOcrAreas) await ensureScheduler();
 
   const jobs: Promise<void>[] = [];
   for (const area of areas) {
@@ -236,8 +235,7 @@ export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnySc
         params.classify_bln_numeric_mode = "1";
       }
 
-      const blob = await canvasToBlob(canvas);               // NEW
-      const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
+      const { data: ocr } = await scheduler!.addJob("recognize", canvas as any, params);
 
       const text = (ocr.text || "").trim();
       results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
@@ -248,12 +246,6 @@ export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnySc
 }
 
 /* ---------------- helpers (mostly unchanged; faster luminance) ---------------- */
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
-  });
-}
 
 function normalizedToPixels(rect: NormalizedRect, imgW: number, imgH: number) {
   const sx = clamp(Math.round(rect.x * imgW), 0, imgW - 1);
@@ -379,18 +371,9 @@ function runPureBlack(img: HTMLImageElement, area: PureBlackScanArea): PureBlack
 async function safeDelete(path?: string) {
   if (!path) return;
   try {
-    const basePath = await new Promise<string>((res, rej) =>
+    await new Promise<void>((resolve) => {
       // @ts-expect-error
-      overwolf.extensions.io.getStoragePath("pictures", _res => _res.error ? rej(_res.error) : res(_res.path))
-    );
-    const all = await new Promise<string[]>(res =>
-      overwolf.io.dir(basePath, _res =>
-        res((_res.data || []).filter(f => f.type === "file").map(f => basePath + "\\" + f.name))
-      )
-    );
-    await Promise.all(all.map(p => new Promise<object>((resolve) =>
-      // @ts-expect-error
-      overwolf.extensions.io.delete("pictures", p, resolve)
-    )));
+      overwolf.extensions.io.delete("pictures", path, () => resolve());
+    });
   } catch { /* ignore */ }
 }
