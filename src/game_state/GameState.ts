@@ -38,6 +38,15 @@ export type GameState = {
   detectedBy?: DetectionCause;
 };
 
+type PendingTransition = {
+  from: GameStateType;
+  to: GameStateType;
+  detectedBy?: DetectionCause;
+  hits: number;
+  firstSeen: number;
+  lastSeen: number;
+};
+
 export const DetectionCertaintyWeight: { [key in DetectionCertainty]: number } = {
   [DetectionCertainty.BLIND_GUESS]: 0,
   [DetectionCertainty.UNCERTAIN]: 10,
@@ -104,6 +113,64 @@ export class GameStateGuesser {
   }
 
   private _state: GameState = { type: GameStateType.UNKNOWN };
+  private pendingTransition: PendingTransition | null = null;
+  private readonly transitionWindowMs = 2500;
+
+  private requiredTransitionHits(from: GameStateType, to: GameStateType, cause?: DetectionCause) {
+    if (from === to) return 1;
+
+    if (from === GameStateType.UNKNOWN && to === GameStateType.MENU) {
+      return cause === DetectionCause.MAIN_MENU_TEXT ? 1 : 2;
+    }
+
+    if (from === GameStateType.UNKNOWN && to === GameStateType.LOADING) return 1;
+    if (from === GameStateType.UNKNOWN && to === GameStateType.MATCH) {
+      return cause === DetectionCause.MAP_TEXT ? 1 : 2;
+    }
+
+    if (from === GameStateType.MATCH && to === GameStateType.MENU) return 2;
+    if (from === GameStateType.LOADING && to === GameStateType.MENU) return 2;
+
+    return 1;
+  }
+
+  private confirmTransition(prev: GameState, next: GameState) {
+    if (prev.type === next.type) {
+      this.pendingTransition = null;
+      return true;
+    }
+
+    const now = Date.now();
+    const requiredHits = this.requiredTransitionHits(prev.type, next.type, next.detectedBy);
+    const pending = this.pendingTransition;
+
+    const sameTransition = !!pending
+      && pending.from === prev.type
+      && pending.to === next.type
+      && pending.detectedBy === next.detectedBy
+      && (now - pending.lastSeen) <= this.transitionWindowMs;
+
+    if (sameTransition) {
+      pending.hits += 1;
+      pending.lastSeen = now;
+    } else {
+      this.pendingTransition = {
+        from: prev.type,
+        to: next.type,
+        detectedBy: next.detectedBy,
+        hits: 1,
+        firstSeen: now,
+        lastSeen: now,
+      };
+    }
+
+    if ((this.pendingTransition?.hits || 0) >= requiredHits) {
+      this.pendingTransition = null;
+      return true;
+    }
+
+    return false;
+  }
 
   public get state() {
     return this._state;
@@ -129,7 +196,11 @@ export class GameStateGuesser {
 
     const prev = this._state;
     if (isEqual(prev, next)) return;
-    if (prev.type !== GameStateType.MATCH) next.map = prev.map;
+    if (next.type === GameStateType.MENU || next.type === GameStateType.CLOSED) {
+      delete next.map;
+    } else if (next.type !== GameStateType.MATCH) {
+      next.map = next.map ?? prev.map;
+    }
 
     if (prev.type !== GameStateType.MENU && next.type === GameStateType.MENU) {
       this.killerGuess = null;
@@ -137,6 +208,8 @@ export class GameStateGuesser {
     } else next.killer = next.killer ?? prev.killer;
 
     next.killerGuess = this.killerGuess;
+
+    if (!this.confirmTransition(prev, next)) return;
 
     this._state = next;
     this.publishGameStateChange(prev, next);
@@ -190,7 +263,6 @@ export class GameStateGuesser {
    * @returns 
    */
   guessLoadingScreen(blackRes?: PureBlackResult, textRes?: OCRSingleResult) {
-    if (this.state.type === GameStateType.UNKNOWN) return;
     if (this.state.type === GameStateType.MATCH) return;
 
     let result: DetectionCause;
@@ -212,12 +284,20 @@ export class GameStateGuesser {
    */
   guessMenu(type: 'main-menu' | 'bloodpoints' | 'menu-btn', res: OCRSingleResult) {
     const getResult = () => {
+      const tokens = this.normalizeStringArray(res.text);
+
       if (type === 'main-menu')
-        return (this.normalizeStringArray(res.text).filter(line => ["play", "rift", "pass", "quests", "store"].some(keyword => line === keyword)).length >= 3) && DetectionCause.MAIN_MENU_TEXT;
-      else if (type === 'menu-btn' && this._state.type !== GameStateType.UNKNOWN) // Edge case: "play" in game-start disclaimer text.
-        return (this.normalizeStringArray(res.text).some(text => ["play", "continue", "cancel"].includes(text))) && DetectionCause.MENU_BUTTON_TEXT;
+        return (
+          tokens.filter(line => ["play", "rift", "pass", "quests", "store"].some(keyword => line === keyword)).length >= 3
+          && tokens.map(l => l.split(" ").filter(l => !!l)).flat().length < 15
+        ) && DetectionCause.MAIN_MENU_TEXT;
+      else if (type === 'menu-btn') { // Edge case: "play" in game-start disclaimer text.
+        const menuBtnHits = tokens.filter(text => ["play", "continue", "cancel"].includes(text)).length;
+        const requiredHits = this._state.type === GameStateType.UNKNOWN ? 2 : 1;
+        return (menuBtnHits >= requiredHits) && DetectionCause.MENU_BUTTON_TEXT;
+      }
       else if (type === 'bloodpoints')
-        return (this.normalizeStringArray(res.text).filter(text => text.match(/\d{3,}/g)).length >= 3) && DetectionCause.BLOODPOINTS_TEXT;
+        return (tokens.filter(text => text.match(/\d{3,}/g)).length >= 3) && DetectionCause.BLOODPOINTS_TEXT;
     }
     const result = getResult();
     if (result) this.push({ type: GameStateType.MENU, detectedBy: result });
@@ -279,47 +359,54 @@ export class GameStateGuesser {
     if (!BACKGROUND_SETTINGS.getValue().enableKillerDetection) return null;
     if (this.state.type !== GameStateType.MATCH) return null;
 
-    const performGuess = () => {
-      // Confirm killer if already guessed
-      const confirmKiller = !!this.killerGuess && (DetectableKillers.find(k => k.name === this.killerGuess));
-      if (confirmKiller) {
-        if (!!confirmKiller.detect.confirmPowerLabel?.length) {
-          const detectTexts = confirmKiller.detect.confirmPowerLabel.map(t => t.toLowerCase());
-          if (detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)))) {
-            return { certainty: DetectionCertainty.AUTO_CONFIRMED, ...confirmKiller };
-          }
-        }
-      }
+    const lowerText = res.text.map(t => t.toLowerCase());
 
-      const matching = DetectableKillers.filter(k => {
-        if (!k.detect.powerLabel?.length) return;
+    const candidates = DetectableKillers
+      .map((killer, index) => {
+        const powerLabelHit = !!killer.detect.powerLabel?.some(dt =>
+          lowerText.some(text => text.includes(dt.toLowerCase()))
+        );
+        const confirmLabelHit = !!killer.detect.confirmPowerLabel?.some(dt =>
+          lowerText.some(text => text.includes(dt.toLowerCase()))
+        );
 
-        const detectTexts = k.detect.powerLabel.map(t => t.toLowerCase());
-        return detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)))
-      });
+        if (!powerLabelHit && !confirmLabelHit) return null;
 
-      // No brainer
-      if (matching.length === 1) {
-        return { ...matching[0], certainty: (this.state.killer?.name === matching[0].name ? DetectionCertainty.AUTO_CONFIRMED : DetectionCertainty.CERTAIN) };
-      }
+        let score = 0;
+        if (powerLabelHit) score += 20;
+        if (confirmLabelHit) score += 30;
+        if (this.state.killer?.name === killer.name) score += 6;
+        if (this.killerGuess === killer.name) score += 4;
 
-      // Fallback if multiple match (should not actually happen)
-      if (matching.length > 1) {
-        return { certainty: DetectionCertainty.UNCERTAIN, ...matching[0] };
-      }
+        return { killer, score, powerLabelHit, confirmLabelHit, index };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.score - a!.score || a!.index - b!.index) as {
+        killer: KillerDetection;
+        score: number;
+        powerLabelHit: boolean;
+        confirmLabelHit: boolean;
+        index: number;
+      }[];
 
-      const matching2 = DetectableKillers.filter(k => {
-        if (!!k.detect.confirmPowerLabel?.length) {
-          const detectTexts = k.detect.confirmPowerLabel.map(t => t.toLowerCase());
-          return detectTexts.some(dt => res.text.some(t => t.toLowerCase().includes(dt)));
-        }
-      });
+    const [best, second] = candidates;
+    if (!best) return null;
 
-      if (matching2[0]) return { certainty: DetectionCertainty.BLIND_GUESS, ...matching2[0] };
-      return null;
+    let certainty: DetectionCertainty;
+    if (best.powerLabelHit && best.confirmLabelHit) {
+      certainty = DetectionCertainty.AUTO_CONFIRMED;
+    } else if (best.powerLabelHit && (!second || best.score > second.score)) {
+      certainty = this.state.killer?.name === best.killer.name
+        ? DetectionCertainty.AUTO_CONFIRMED
+        : DetectionCertainty.CERTAIN;
+    } else if (best.confirmLabelHit && !best.powerLabelHit && (!second || best.score > second.score)) {
+      certainty = DetectionCertainty.BLIND_GUESS;
+    } else {
+      certainty = DetectionCertainty.UNCERTAIN;
     }
 
-    const guess = performGuess();
+    const guess = { ...best.killer, certainty };
+    this.killerGuess = guess.name;
     if (!!guess && DetectionCertaintyWeight[guess.certainty] >= DetectionCertaintyWeight[this.state.killer?.certainty ?? DetectionCertainty.BLIND_GUESS]) this.push({ ...this.state, killer: guess, detectedBy: DetectionCause.KILLER_POWER_TEXT });
   }
 

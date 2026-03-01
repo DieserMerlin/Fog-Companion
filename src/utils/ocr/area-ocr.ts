@@ -181,8 +181,9 @@ export async function performOcrAreas(areas: AnyScanArea[]): Promise<OcrAreasRes
           params.classify_bln_numeric_mode = "1";
         }
 
-        // IMPORTANT: pass Canvas directly — no base64 re-encode
-        const { data: ocr } = await scheduler!.addJob("recognize", canvas as any, params);
+        // Use a PNG blob to avoid runtime-specific canvas read issues.
+        const blob = await canvasToBlob(canvas);
+        const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
 
         const text = (ocr.text || "").trim();
         results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
@@ -235,7 +236,8 @@ export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnySc
         params.classify_bln_numeric_mode = "1";
       }
 
-      const { data: ocr } = await scheduler!.addJob("recognize", canvas as any, params);
+      const blob = await canvasToBlob(canvas);
+      const { data: ocr } = await scheduler!.addJob("recognize", blob, params);
 
       const text = (ocr.text || "").trim();
       results[ocrArea.id] = { type: "ocr", text: text ? splitLines(text) : [], confidence: ocr.confidence };
@@ -246,6 +248,12 @@ export async function performOcrAreasOnImage(img: HTMLImageElement, areas: AnySc
 }
 
 /* ---------------- helpers (mostly unchanged; faster luminance) ---------------- */
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+  });
+}
 
 function normalizedToPixels(rect: NormalizedRect, imgW: number, imgH: number) {
   const sx = clamp(Math.round(rect.x * imgW), 0, imgW - 1);
