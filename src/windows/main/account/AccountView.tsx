@@ -1,17 +1,20 @@
-import Stack from "@mui/material/Stack";
-import { useSession } from "../../../utils/trpc/use-session"
 import { AuthProvider } from "@diesermerlin/fog-companion-web";
-import { memo } from "react";
-import { ArrowForwardIos, Logout, Person, Sync, Web } from "@mui/icons-material";
-import Typography from "@mui/material/Typography";
+import { ArrowForwardIos, Logout, Person, Sync } from "@mui/icons-material";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import { useTRPC } from "../../../utils/trpc/trpc";
-import { useMutation } from '@tanstack/react-query';
-import { ConfirmOpenLinkExternally } from "../../../utils/mui/OverwolfLink";
-import { APP_CONFIG } from "../../../AppConfig";
-import { WIP } from "../../../utils/WIP";
+import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
+import Typography from "@mui/material/Typography";
+import { useMutation } from '@tanstack/react-query';
+import { memo, useRef, useState } from "react";
+import { APP_CONFIG } from "../../../AppConfig";
+import { ConfirmOpenLinkExternally } from "../../../utils/mui/OverwolfLink";
+import { useTRPC } from "../../../utils/trpc/trpc";
+import { useSession } from "../../../utils/trpc/use-session";
+import { WIP } from "../../../utils/WIP";
 import { ACCOUNT_SETTINGS } from "./account-settings";
 
 const ProfileImg = memo((props: { width: number, provider: AuthProvider, providerUserId: string, avatar?: string }) => {
@@ -27,6 +30,14 @@ const ProfileImg = memo((props: { width: number, provider: AuthProvider, provide
   return <div style={{ background: `url(${getUrl()})`, width: props.width, height: props.width, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', borderRadius: 999999 }} />
 });
 
+const SyncIntervals = {
+  [10_000]: '10 seconds',
+  [30_000]: '30 seconds',
+  [60_000]: 'minute',
+  [120_000]: '2 minutes',
+  [300_000]: '5 minutes',
+} as const;
+
 export const AccountView = () => {
   const session = useSession(s => s.session!);
 
@@ -34,6 +45,11 @@ export const AccountView = () => {
   const { mutate: logout } = useMutation(trpc.sessions.logout.mutationOptions({ onSuccess: () => useSession.getState().recheck() }));
 
   const sync = ACCOUNT_SETTINGS.hook(s => s.sync1v1Challenges);
+  let syncInterval = ACCOUNT_SETTINGS.hook(s => s.sync1v1Interval);
+  if (!SyncIntervals[syncInterval]) syncInterval = 10_000;
+
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const [syncIntOpen, setSyncIntOpen] = useState(false);
 
   return (
     <Stack width={'100%'} spacing={1}>
@@ -65,7 +81,15 @@ export const AccountView = () => {
               Enable this so Fog Companion can track your 1v1 Statistics!
             </small>
           </Stack>
-          <Switch checked={sync} onChange={(_, c) => ACCOUNT_SETTINGS.update({ sync1v1Challenges: c })} />
+          <Stack alignItems={'end'}>
+            <Switch checked={sync} onChange={(_, c) => ACCOUNT_SETTINGS.update({ sync1v1Challenges: c })} />
+            <small>Sync every <b><Link onClick={() => setSyncIntOpen(true)} ref={linkRef}>{SyncIntervals[syncInterval]}</Link></b>.</small>
+            <Menu open={syncIntOpen} onClose={() => setSyncIntOpen(false)} anchorEl={linkRef.current}>
+              {Object.keys(SyncIntervals).map((k) => (
+                <MenuItem sx={t => ({ color: syncInterval === parseInt(k) ? t.palette.primary.main : undefined })} onClick={() => { ACCOUNT_SETTINGS.update({ sync1v1Interval: parseInt(k) }); setSyncIntOpen(false); }}>{SyncIntervals[parseInt(k)]}</MenuItem>
+              ))}
+            </Menu>
+          </Stack>
         </Stack>
       </Paper>
       <WIP />

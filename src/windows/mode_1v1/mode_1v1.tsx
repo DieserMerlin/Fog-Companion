@@ -10,37 +10,36 @@ import { GameStateType } from "../../game_state/GameState";
 import { useGameState } from "../../utils/hooks/gamestate-hook";
 import { useHotkeys } from "../../utils/hooks/hotkey-hook";
 import { BaseWindow } from "../../utils/window/AppWindow";
-import { MODE_1V1_SETTINGS, useMode1v1Theme } from "./mode_1v1-settings";
-import { Mode1v1ChallengeManager } from "../main/mode-1v1/mode-1v1-manager";
+import { MODE_1V1_SETTINGS, MODE_1V1_THEME, useMode1v1Theme } from "./mode_1v1-settings";
+import { Mode1v1Manager } from "../main/mode-1v1/mode-1v1-manager";
 import { MODE_1V1_STATE } from "./use-mode-1v1-state";
 import { useCurrent1v1Challenge } from "./use-current-1v1-challenge";
 import { useEffect, useMemo, useRef } from "react";
 import stringify from 'json-stringify-deterministic';
 
-
 class Mode1v1 extends AppWindow {
-
   private static _instance: Mode1v1;
 
   private constructor() {
     super(kWindowNames.mode_1v1);
 
     this.setHotkeyBehavior();
-    useMode1v1Theme.subscribe((curr, prev) => stringify(curr.theme) !== stringify(prev.theme) && this.resize());
+    MODE_1V1_THEME.hook.subscribe((curr, prev) => stringify(curr.theme) !== stringify(prev.theme) && this.resize());
     this.resize();
   }
 
-  private timerApi: Mode1v1TimerRef;
+  private timerApi: Mode1v1TimerRef | null;
   private unsubscribeListener: () => void;
   setTimerApi(api: Mode1v1TimerRef) {
     this.timerApi = api;
+    overwolf.windows.getMainWindow().mode1v1TimerApi = api;
+
+    this.unsubscribeListener?.();
     if (!api) return;
 
     api.switchMode(MODE_1V1_SETTINGS.getValue().selected);
 
-    this.unsubscribeListener?.();
-
-    const unsubscribeHook = MODE_1V1_SETTINGS.hook.subscribe(s => api.switchMode(s.selected));
+    const unsubscribeHook = MODE_1V1_SETTINGS.hook.subscribe(s => api?.switchMode(s.selected));
 
     this.unsubscribeListener = () => {
       unsubscribeHook();
@@ -56,7 +55,7 @@ class Mode1v1 extends AppWindow {
   }
 
   private async resize() {
-    const { theme } = useMode1v1Theme.getState();
+    const { theme } = MODE_1V1_THEME.getValue();
     const gi = overwolf.windows.getMainWindow().gameInfo;
 
     let width = 0, height = 0;
@@ -88,22 +87,28 @@ class Mode1v1 extends AppWindow {
     console.log('RESIZE WINDOW:', window);
     const res = await new Promise<overwolf.Result>((res) => overwolf.windows.changeSize({ window_id: window.window.id, width, height, auto_dpi_resize: true }, _res => res(_res)));
     console.log('RESIZE RES:', res);
+
+    const first = !localStorage.getItem('1v1Resized');
+    if (first) {
+      localStorage.setItem('1v1Resized', '1');
+      await new Promise<overwolf.Result>(res => overwolf.windows.changePosition(window.window.id, gi.width / 2 - width / 2, 10, _res => res(_res)));
+    }
   }
 
 
   private async setHotkeyBehavior() {
     OWHotkeys.onHotkeyDown(kHotkeys.mode1v1switchToSurv, () => MODE_1V1_SETTINGS.update({ selected: 'surv' }));
     OWHotkeys.onHotkeyDown(kHotkeys.mode1v1switchToKllr, () => MODE_1V1_SETTINGS.update({ selected: 'kllr' }));
-    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimer, () => this.timerApi.resetTimer());
-    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimers, () => this.timerApi.resetTimers());
-    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1startStopTimer, () => this.timerApi.startStop());
+    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimer, () => this.timerApi?.resetTimer());
+    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimers, () => this.timerApi?.resetTimers());
+    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1startStopTimer, () => this.timerApi?.startStop());
 
     overwolf.games.inputTracking.onKeyDown.addListener(e => {
-      if (e.key === '50') this.timerApi.handleEmote();
-      if (e.key === '162') this.timerApi.handleCrouch();
+      if (e.key === '50') this.timerApi?.handleEmote();
+      if (e.key === '162') this.timerApi?.handleCrouch();
     });
     overwolf.games.inputTracking.onMouseDown.addListener(e => {
-      this.timerApi[e.button === 'left' ? 'handleM1' : 'handleM2']();
+      this.timerApi?.[e.button === 'left' ? 'handleM1' : 'handleM2']();
     })
   }
 
@@ -115,7 +120,7 @@ class Mode1v1 extends AppWindow {
 Mode1v1.instance();
 
 const Mode1v1App = () => {
-  const theme = useMode1v1Theme(s => s.theme);
+  const theme = useMode1v1Theme();
   const hotkeys = useHotkeys();
 
   const inMatch = useGameState(s => s.state.type === GameStateType.MATCH);
@@ -131,26 +136,28 @@ const Mode1v1App = () => {
   const apiRef = useRef<Mode1v1TimerRef>(null);
 
   const challenge = useCurrent1v1Challenge();
-  const stringifiedChallenge = stringify(challenge);
 
-  // tracks the last "persisted" played state to avoid re-saving same data
-  const lastPersistedPlayedRef = useRef<string | null>(null);
+  const game = challenge?.played[challenge.played.length - 1];
+  useEffect(() => { !game && Mode1v1Manager.Instance().addGame(challenge) }, [game]);
+
+  const survTime = game?.survTime ?? 0;
+  const kllrTime = game?.kllrTime ?? 0;
+  const survPoints = challenge?.played.filter(g => !!g.kllrTime && !!g.survTime).filter(g => g.survTime < g.kllrTime).length ?? 0;
+  const kllrPoints = challenge?.played.filter(g => !!g.kllrTime && !!g.survTime).filter(g => g.survTime > g.kllrTime).length ?? 0;
 
   // whenever DB / external challenge changes, sync timer + "persisted" baseline
-  useEffect(() => {
-    if (!stringifiedChallenge) return;
-    const parsed = JSON.parse(stringifiedChallenge);
-
-    // this is now considered the authoritative persisted state
-    lastPersistedPlayedRef.current = stringify(parsed.played ?? null);
-
-    apiRef.current?.setChallenge(parsed);
-  }, [stringifiedChallenge]);
+  const data = useMemo(() => ({
+    survTime,
+    kllrTime,
+    survPoints,
+    kllrPoints,
+  }), [survTime, kllrTime, survPoints, kllrPoints]);
 
   return (
     <BaseWindow fullWindowDrag transparent>
-      {challenge && <RenderMode1v1Timer
+      {game && <RenderMode1v1Timer
         key={'mode-1v1-timer-app'}
+        data={data}
         ref={api => Mode1v1.instance().setTimerApi((apiRef.current = api))}
         theme={theme}
         hotkeys={hotkeys}
@@ -166,21 +173,17 @@ const Mode1v1App = () => {
         onState={state => {
           MODE_1V1_STATE.update({ state });
 
-          const nextChallenge = state.challenge;
-          if (!nextChallenge) return;
-
-          const nextPlayedKey = stringify(nextChallenge.played ?? null);
+          const nextDataKey = stringify(state.res);
 
           // if the timer is just echoing what we already consider persisted, do nothing
-          if (nextPlayedKey === lastPersistedPlayedRef.current) return;
+          if (nextDataKey === stringify(data)) return;
 
           if (!state.running) {
-            // we're about to persist this; update the baseline first
-            lastPersistedPlayedRef.current = nextPlayedKey;
-            Mode1v1ChallengeManager.Instance().updateChallenge(nextChallenge);
+            game.survTime = state.res.survTime;
+            game.kllrTime = state.res.kllrTime;
+            Mode1v1Manager.Instance().updateChallenge({ ...challenge });
           }
         }}
-        onRequestChallenge={() => challenge}
       />}
     </BaseWindow>
   );

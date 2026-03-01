@@ -28,4 +28,6 @@ export const MODE_1V1_SETTINGS = createStorage<Mode1v1Settings>('MODE_1V1_SETTIN
   selected: 'surv',
 });
 
-export const useMode1v1Theme = create<{ theme: Mode1v1TimerTheme }>(() => ({ theme: Mode1v1DefaultTheme }));
+export const MODE_1V1_THEME = createStorage<{ theme: Mode1v1TimerTheme | null }>('MODE_1V1_THEME', { theme: null });
+
+export const useMode1v1Theme = () => MODE_1V1_THEME.hook(s => s.theme || Mode1v1DefaultTheme);

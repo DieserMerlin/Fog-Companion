@@ -6,6 +6,8 @@ import { useRef } from "react";
 import { DetectionCause, GameStateType } from "../../../game_state/GameState";
 import { useGameState } from "../../../utils/hooks/gamestate-hook";
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
+import { HLTElement } from "./tutorials/AppHighlightTutorial";
+import { HomeViewTutorial } from "./tutorials/highlight/HomeViewTutorial";
 
 const HumanReadableGameState: { [key in GameStateType]: string } = ({
   CLOSED: "Closed",
@@ -66,30 +68,34 @@ export const AppDetectionDisplay = () => {
 
   return (
     <Stack direction={'row'} spacing={.5} alignItems={'center'} width={'100%'}>
-      <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
-        <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
-          <TipsAndUpdates onClick={handleClick} />
-          {smartDetection ? (
-            <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
-              <span style={firstLineStyle}>State: <b>{(gs.type === GameStateType.MATCH && !!gs.map && <>Match ({gs.map.name})</>) || (HumanReadableGameState[gs.type] || gs.type)}</b></span>
-              {!!gs.detectedBy && <span style={secondLineStyle}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
-              {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={secondLineStyle}>Open menu to continue detection.</span>}
-              {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={secondLineStyle}>Open DBD to start detection.</span>}
-            </Stack>
-          ) : (
-            <small>Enable to start guessing.</small>
-          )}
-        </Stack>
-      </Paper >
-      <Paper variant="outlined" style={{ opacity: .6, width: '50%' }}>
-        <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
-          <span>🔪</span>
-          <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
-            <span style={firstLineStyle}>Killer: <b>{(gs.killer?.name || gs.killerGuess || 'No guess')}</b></span>
-            {!!gs.killer && <span style={secondLineStyle}>Guess certainty: <b style={{ color: HumanReadableCertainty[gs.killer.certainty].color }}>{HumanReadableCertainty[gs.killer.certainty].text}</b></span>}
+      <HLTElement {...HomeViewTutorial.SmartFeaturesState}>
+        {(key, setRef, highlighted) => (<Paper ref={setRef} key={key} variant="outlined" style={{ opacity: .6, width: '50%' }}>
+          <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
+            <TipsAndUpdates onClick={handleClick} />
+            {smartDetection ? (
+              <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
+                <span style={firstLineStyle}>State: <b>{(gs.type === GameStateType.MATCH && !!gs.map && <>Match ({gs.map.name})</>) || (HumanReadableGameState[gs.type] || gs.type)}</b></span>
+                {!!gs.detectedBy && <span style={secondLineStyle}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
+                {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={secondLineStyle}>Open menu to continue detection.</span>}
+                {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={secondLineStyle}>Open DBD to start detection.</span>}
+              </Stack>
+            ) : (
+              <small>Enable to start guessing.</small>
+            )}
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper >)}
+      </HLTElement>
+      <HLTElement {...HomeViewTutorial.SmartFeaturesKiller}>
+        {(key, setRef, highlighted) => (<Paper key={key} ref={setRef} variant="outlined" style={{ opacity: .6, width: '50%' }}>
+          <Stack direction={'row'} alignItems={'center'} spacing={1} py={.5} px={1} height={40}>
+            <span>🔪</span>
+            <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
+              <span style={firstLineStyle}>Killer: <b>{(gs.killer?.name || gs.killerGuess || 'No guess')}</b></span>
+              {!!gs.killer && <span style={secondLineStyle}>Guess certainty: <b style={{ color: HumanReadableCertainty[gs.killer.certainty].color }}>{HumanReadableCertainty[gs.killer.certainty].text}</b></span>}
+            </Stack>
+          </Stack>
+        </Paper>)}
+      </HLTElement>
     </Stack >
   )
 }

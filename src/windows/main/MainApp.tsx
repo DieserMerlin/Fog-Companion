@@ -1,12 +1,12 @@
 import { AppSnackBarHost } from "@diesermerlin/fog-companion-web";
 import { Alarm, Close, Home, Info, Logout, Minimize, People, Person, Settings } from "@mui/icons-material";
 import { TabContext, TabList } from "@mui/lab";
-import { Box, CircularProgress, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Tooltip, Typography } from "@mui/material";
+import { Box, CircularProgress, darken, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Tooltip, Typography } from "@mui/material";
 import { useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from "motion/react";
 import { PropsWithChildren, useEffect, useRef, useState } from "react";
 import { useTRPC } from "../../utils/trpc/trpc";
-import { useSession } from "../../utils/trpc/use-session";
+import { useConnectedClient, useSession } from "../../utils/trpc/use-session";
 import { BaseWindow } from "../../utils/window/AppWindow";
 import { AppAbout } from "./about/AppAbout";
 import { AccountView } from "./account/AccountView";
@@ -15,7 +15,7 @@ import { MainMode1v1View } from "./mode-1v1/MainMode1v1View";
 import { AppSettings } from "./settings/AppSettings";
 import { SettingsHotkey } from "./settings/AppSettingsHotkey";
 import { MainAppTab, useMainApp } from "./use-main-app";
-import { TutorialsOverlay, useTutorial } from "./welcome/AppTutorial";
+import { TutorialsOverlay, useTutorial } from "./welcome/tutorials/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
 
 const MotionBox = motion(Box);
@@ -57,9 +57,8 @@ function AlwaysOnTopHeader() {
             left: 0,
             right: 0,
             height: 'var(--winbar-h)',
-            bgcolor: t.palette.background.paper,
+            bgcolor: t.palette.background.default,
             fontSize: '.95em',
-            opacity: 0.8,
             px: 0.5,
             // higher than tooltip (1500) to be safe
             zIndex: t.zIndex.tooltip + 1, // => 1501 by default
@@ -87,6 +86,12 @@ function AlwaysOnTopHeader() {
   );
 }
 
+const AppConnectionHost = () => {
+  useConnectedClient();
+
+  return null;
+};
+
 export const MainApp = () => {
   const tab = useMainApp(s => s.tab);
 
@@ -101,12 +106,13 @@ export const MainApp = () => {
   return (
     <BaseWindow resizable>
       <AppSnackBarHost />
+      <AppConnectionHost />
       <Stack position={'fixed'} top={0} left={0} m={0} p={0} width={'100vw'} height={'100vh'} overflow={'hidden'}>
         <TabContext value={tab}>
-          <Box width={'100%'} height={HEADER_HEIGHT}></Box>
+          <Box width={'100%'} height={HEADER_HEIGHT + 8}></Box>
           <AlwaysOnTopHeader />
-          <Stack direction={'row'} pr={tutorialOpen ? 0 : 2} alignItems={"center"} width={'100%'} height={'100%'}>
-            <Stack m={0} p={0} overflow={"hidden"} width={"100vw"} height={'100%'} position={'relative'}>
+          <Stack direction={'row'} pr={tutorialOpen ? 0 : 2} alignItems={"center"} width={'100%'} height={'100%'} bgcolor={t => t.palette.background.default}>
+            <Stack m={0} mr={tutorialOpen ? 0 : 2} p={0} overflow={"hidden"} width={"100vw"} height={'100%'} position={'relative'} bgcolor={t => t.palette.background.paper} borderRadius={1}>
               <TutorialsOverlay />
 
               <TabList onChange={(_, v) => useMainApp.setState({ tab: v })} variant="fullWidth" sx={{ pr: 2 }}>
@@ -168,7 +174,7 @@ const LoginIndicator = () => {
   const { mutate: logout } = useMutation(trpc.sessions.logout.mutationOptions({ onSuccess: () => useSession.getState().recheck() }));
 
   return (
-    <Stack direction={'row'} alignItems={'center'} justifyContent={'center'} fontSize={'.75em !important'} bgcolor={'background.paper'} width={'100%'} maxHeight={30} px={1} spacing={3} sx={{ opacity: .7 }}>
+    <Stack direction={'row'} alignItems={'center'} justifyContent={'center'} fontSize={'.75em !important'} bgcolor={t => t.palette.background.default} width={'100%'} maxHeight={30} px={1} spacing={3}>
       {sessionLoaded ? (
         <>
           <Stack direction={'row'} alignItems={'center'} spacing={1}>

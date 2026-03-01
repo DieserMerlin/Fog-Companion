@@ -99,7 +99,11 @@ export const LoginDialogWrapper = (props: PropsWithChildren<{ onClose: () => voi
       setError("");
     },
     onData: data => {
-      'code' in data && setCode(data.code);
+      console.log({ data });
+      if ('code' in data) {
+        console.log({ data })
+        setCode(data.code);
+      }
       data.success === true && mutate(data.jwt);
       data.success === false && setError("Connection failed. Please try again.");
     },
@@ -107,6 +111,8 @@ export const LoginDialogWrapper = (props: PropsWithChildren<{ onClose: () => voi
       setError(e.message);
     }
   }));
+
+  console.log({ code, error });
 
   return (
     !loggedIn ? <>

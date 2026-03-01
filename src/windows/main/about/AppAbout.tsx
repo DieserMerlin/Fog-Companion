@@ -10,8 +10,8 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
 import pkg from '../../../../package.json';
 import { ConfirmOpenLinkExternally, OverwolfLink } from "../../../utils/mui/OverwolfLink";
-import { useTutorial } from "../welcome/AppTutorial";
-import { WELCOME_TUTORIALS } from "../welcome/tutorials/WelcomeTutorial";
+import { useTutorial } from "../welcome/tutorials/AppTutorial";
+import { WELCOME_TUTORIALS } from "../welcome/tutorials/fullscreen/WelcomeTutorial";
 
 export const AppAbout = () => {
   const [noticeText, setNoticeText] = useState('');

@@ -6,6 +6,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import { AppRouter, ErrorLink } from "@diesermerlin/fog-companion-web";
 import { APP_CONFIG } from "../../AppConfig";
 import { useSession } from "./use-session";
+import superjson from 'superjson';
 
 export const { TRPCProvider, useTRPC, useTRPCClient } =
   createTRPCContext<AppRouter>();
@@ -42,6 +43,7 @@ export const trpcClient = () => createTRPCClient<AppRouter>({
       condition: opts => opts.type === 'subscription',
       true: httpSubscriptionLink({
         url: APP_CONFIG.BACKEND_API_URL,
+        transformer: superjson,
         eventSourceOptions() {
           return {
             withCredentials: true,
@@ -50,6 +52,7 @@ export const trpcClient = () => createTRPCClient<AppRouter>({
       }),
       false: httpBatchLink({
         url: APP_CONFIG.BACKEND_API_URL,
+        transformer: superjson,
         fetch(url, opts) {
           return fetch(url, { ...opts, credentials: 'include' });
         },
