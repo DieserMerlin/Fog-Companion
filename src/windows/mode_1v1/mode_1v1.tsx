@@ -82,11 +82,8 @@ class Mode1v1 extends AppWindow {
       height = 0;
     }
 
-    console.log(`SETTING SIZE: ${width}x${height}`)
     const window = await new Promise<overwolf.windows.WindowResult>(res => overwolf.windows.getCurrentWindow(w => res(w)));
-    console.log('RESIZE WINDOW:', window);
     const res = await new Promise<overwolf.Result>((res) => overwolf.windows.changeSize({ window_id: window.window.id, width, height, auto_dpi_resize: true }, _res => res(_res)));
-    console.log('RESIZE RES:', res);
 
     const first = !localStorage.getItem('1v1Resized');
     if (first) {

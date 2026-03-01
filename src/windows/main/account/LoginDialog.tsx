@@ -99,9 +99,7 @@ export const LoginDialogWrapper = (props: PropsWithChildren<{ onClose: () => voi
       setError("");
     },
     onData: data => {
-      console.log({ data });
       if ('code' in data) {
-        console.log({ data })
         setCode(data.code);
       }
       data.success === true && mutate(data.jwt);
@@ -111,8 +109,6 @@ export const LoginDialogWrapper = (props: PropsWithChildren<{ onClose: () => voi
       setError(e.message);
     }
   }));
-
-  console.log({ code, error });
 
   return (
     !loggedIn ? <>

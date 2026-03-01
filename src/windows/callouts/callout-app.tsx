@@ -51,8 +51,6 @@ const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left'
 
   useEffect(() => useCalloutVariant.setState({ variant: 0 }), [map]);
 
-  console.log({ map, mapVariant });
-
   return (
     <Stack width={'100%'} height={'100%'} spacing={.5}>
       <Grid container spacing={.5} justifyContent={props.direction === 'right' ? 'flex-end' : undefined}>

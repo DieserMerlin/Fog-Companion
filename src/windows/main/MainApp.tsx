@@ -207,30 +207,23 @@ const LoginIndicator = () => {
 }
 
 const AdContainer = () => {
-  console.log('render-ad');
   const adRef = useRef<any>(null);
   const [showTips, setShowTips] = useState(false);
 
   const onLoad = () => {
-    console.log('ad-onload');
-
     const OwAd = (window as any).OwAd;
     if (!OwAd) return;
 
     const el = document.getElementById('ad-160x600');
     adRef.current = new OwAd(el, { size: { width: 160, height: 600 } });
 
-    adRef.current.addEventListener('display_ad_loaded', () => { console.log('display-ad-loaded'); setShowTips(false); });
-    adRef.current.addEventListener('error', e => { console.log('ad error', e); setShowTips(true); });
-
-    console.log('ad-added');
+    adRef.current.addEventListener('display_ad_loaded', () => { setShowTips(false); });
+    adRef.current.addEventListener('error', () => { setShowTips(true); });
   }
 
   useEffect(() => {
-    console.log('call-ad-onload');
     onLoad();
     return () => {
-      console.log('call-ad-shutdown');
       adRef.current?.shutdown();
     }
   }, []);

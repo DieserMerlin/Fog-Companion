@@ -156,14 +156,10 @@ export const AppCustomMapSettings = (props: { onClose: () => void }) => {
     const instance = CustomProvider.Instance();
     const resolverInstance = MapResolver.Instance();
 
-    console.log({ instance, resolverInstance });
-
     await resolverInstance.reloadCache();
 
     const { basePath, exists } = await instance.folderExists();
     const list = await instance.list();
-
-    console.log({ basePath, exists, list });
 
     const out: TreeStructure = [{ id: basePath, label: 'CustomMaps', children: [] }];
 
@@ -200,8 +196,6 @@ export const AppCustomMapSettings = (props: { onClose: () => void }) => {
         }
       }
     }
-
-    console.log(out);
 
     setData({ customFolder: basePath, customFolderExists: exists, customMaps: out });
     setLoading(false);

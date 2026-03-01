@@ -84,7 +84,6 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
   };
 
   const { realmOpen, selectedMapIndex, selectedRealmIndex } = useMapBrowserNavigation();
-  console.log({ realmOpen, selectedRealmIndex, selectedMapIndex });
 
   const {
     isFocusVisibleRef,
@@ -92,8 +91,6 @@ export const CalloutMapBrowser = (props: { current: GameStateMap | null, onSelec
     onBlur: onFVBlur,
     ref: focusVisibleRef,
   } = useIsFocusVisible();
-
-  console.log(realms);
 
   const hk = useHotkeys();
 

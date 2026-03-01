@@ -212,12 +212,8 @@ export class GameStateGuesser {
       )
       .sort((a, b) => b.match - a.match);
 
-    console.log({ guessedName, matches });
-
     const [highestMatch] = matches;
     if (!highestMatch || highestMatch.match < .85) return null;
-
-    console.log({ highestMatch });
 
     if (
       this._lastGuessedMap &&
@@ -304,10 +300,8 @@ export class GameStateGuesser {
       const detectTexts = killer.detect.names.map(t => t.toLowerCase());
 
       if (detectTexts.some(dt => res.text.some(t => {
-        console.log(dt);
         if (t.includes("...")) {
           const [namePart] = t.split("...");
-          console.log({ t, namePart, dt, res: dt.includes(namePart.toLowerCase()) })
           return dt.includes(namePart.toLowerCase());
         }
         return t.toLowerCase().includes(dt);

@@ -9,5 +9,4 @@ export const useMapDir = create<{ realms: Record<string, Record<string, number>>
   }
 }));
 
-useMapDir.subscribe(state => console.log(state));
 useMapDir.getState().update(false);

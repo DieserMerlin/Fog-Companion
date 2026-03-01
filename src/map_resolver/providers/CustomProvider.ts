@@ -36,7 +36,6 @@ export class CustomProvider implements IMapFileProvider {
     const { exists, basePath } = await this.folderExists();
 
     if (!exists) {
-      console.log('Custom maps base path does not exist', basePath);
       this.cache = [];
       return this.cache;
     }
@@ -68,7 +67,6 @@ export class CustomProvider implements IMapFileProvider {
             const reader = new FileReader();
             reader.onload = () => {
               const out = reader.result as string; // data:<mime>;base64,...
-              console.log('[readFile] data-url len:', out?.length);
               resolve(out);
             };
             reader.onerror = (err) => reject(err);
@@ -77,7 +75,6 @@ export class CustomProvider implements IMapFileProvider {
           }
 
           const url = URL.createObjectURL(blob); // blob:overwolf-extension://...
-          console.log('[readFile] blob-url:', url);
           resolve(url.toString());
         });
       });
@@ -91,7 +88,6 @@ export class CustomProvider implements IMapFileProvider {
 
       const fullPath = dirPath + '\\' + name;
       const imageUrl = await readFile({ fullPath, as: 'data-url' });
-      console.log(imageUrl);
 
       entries.push({
         source: this.id,
@@ -103,7 +99,7 @@ export class CustomProvider implements IMapFileProvider {
     };
 
     // Files directly under base
-    await Promise.all(firstLevel.filter(f => f.type === 'file').map(f => add(basePath, f, "Custom").then(res => console.log({ res }))));
+    await Promise.all(firstLevel.filter(f => f.type === 'file').map(f => add(basePath, f, "Custom")));
 
     // Subfolders -> folder name as realm hint
     const dirs = firstLevel.filter(f => f.type === 'dir');
@@ -118,7 +114,7 @@ export class CustomProvider implements IMapFileProvider {
         overwolf.io.dir(dirPath, _res => res(_res.data || []))
       );
 
-      await Promise.all(contents.filter(f => f.type === 'file').map(f => add(dirPath, f, d.name || "Custom").then(console.log)));
+      await Promise.all(contents.filter(f => f.type === 'file').map(f => add(dirPath, f, d.name || "Custom")));
     }
 
     this.cache = entries;

@@ -50,7 +50,6 @@ export class Mode1v1Manager {
   }
 
   async updateChallenge(challenge: Mode1v1TimerChallenge) {
-    console.log('updateChallenge', challenge);
     await this.appDb.transaction('rw', this.appDb.mode1v1Challenges, async () => {
       challenge.updatedAt = Date.now();
       await this.appDb.mode1v1Challenges.update(challenge.challengeId, challenge);

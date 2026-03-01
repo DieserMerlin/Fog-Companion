@@ -106,7 +106,6 @@ async function captureScreenshotImage(): Promise<HTMLImageElement | null> {
   const shot = await new Promise<overwolf.media.FileResult>((resolve) =>
     overwolf.media.takeScreenshot(resolve)
   );
-  console.log({ shot });
   if (!shot.success || !shot.url || !shot.path) return null;
 
   const img = await loadImage(shot.url);

@@ -54,7 +54,6 @@ class MainWindow extends AppWindow {
 
   private constructor(windowName: kWindowNames) {
     super(windowName);
-    console.log(windowName);
 
     if (windowName === kWindowNames.mainDesktop)
       overwolf.windows.getMainWindow().bus.on('game-info', gi => !!gi && moveOnceToSecondScreen(gi));
@@ -70,7 +69,6 @@ class MainWindow extends AppWindow {
 }
 
 new Promise<boolean>(res => overwolf.windows.getCurrentWindow(_res => res(_res.window.name === kWindowNames.mainDesktop))).then(res => {
-  console.log(res ? 'DESKTOP' : 'INGAME');
   MainWindow.instance(res ? kWindowNames.mainDesktop : kWindowNames.mainInGame);
   useMainApp.setState({ mode: res ? 'desktop' : 'in-game' })
 });

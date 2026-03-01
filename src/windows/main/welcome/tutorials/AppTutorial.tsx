@@ -373,7 +373,7 @@ export const TutorialsOverlay = () => {
   const isOpen = tutorials.length > 0;
 
   return (
-    <AnimatePresence mode="wait" initial={false} onExitComplete={() => console.log('overlay exited')}>
+    <AnimatePresence mode="wait" initial={false}>
       {isOpen && (
         <motion.div
           key="tutorials"

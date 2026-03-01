@@ -54,7 +54,6 @@ const makeReturn = (key: string, res: OcrAreasResult) => {
   const debug = { type: key, res: res[key as keyof OcrAreasResult] };
   window.bus.emit('ocr-decision', key);
   window.cache['ocr-decision'] = key;
-  // console.log(debug);
   return debug;
 };
 
@@ -309,8 +308,6 @@ class BackgroundController {
         );
         if (!gi || !gi.success || !gi.isRunning || !gi.isInFocus) return;
 
-        const start = Date.now();
-
         // Build areas exactly as before (unchanged)
         const OCR_AREAS: AnyScanArea[] = [
           { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 240, canvas: window.cache.canvas?.['map'] || undefined },
@@ -351,7 +348,6 @@ class BackgroundController {
           const res = await performOcrAreas(OCR_AREAS as any);
           window.bus.emit('ocr-res', res);
           await this.evaluateRes(res!);
-          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
           return;
         }
 
@@ -371,24 +367,19 @@ class BackgroundController {
 
         // Stage A: loading-screen first (cheap, can return early while keeping your check order)
         if (await runSubset(OCR_AREAS.filter(a => (a as any).type === 'pure-black'))) {
-          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
           return;
         }
 
         // Stage B: top-priority OCR — map, then settings
         if (await runSubset(OCR_AREAS.filter(a => a.id === 'map'))) {
-          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
           return;
         }
         if (await runSubset(OCR_AREAS.filter(a => a.id === 'settings'))) {
-          console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
           return;
         }
 
         // Stage C: the rest in one go (concurrent via scheduler)
         await runSubset(OCR_AREAS.filter(a => a.id !== 'map' && a.id !== 'settings' && (a as any).type !== 'pure-black'));
-
-        console.log("SCREENSHOT PROCESSING TOOK " + (Date.now() - start));
       } catch {
         // swallow
       } finally {
@@ -456,7 +447,6 @@ class BackgroundController {
     // 6) Menu button
     if (res['menu-btn']?.type === 'ocr') {
       const mb = res['menu-btn'] as Extract<NonNullable<typeof res['menu-btn']>, { type: 'ocr' }>;
-      console.log("GUESS-KILLER-BY-NAME");
       if (this.guesser.guessKillerByName(mb)) {
         return makeReturn('menu-btn', res);
       }
