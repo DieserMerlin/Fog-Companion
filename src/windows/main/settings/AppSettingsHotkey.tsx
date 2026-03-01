@@ -5,8 +5,9 @@ import { create } from 'zustand';
 import { kDbdGameId, kHotkeys } from '../../../consts';
 import { useHotkeys } from '../../../utils/hooks/hotkey-hook';
 import { useMainApp } from '../use-main-app';
-import { useTutorial } from '../welcome/AppTutorial';
+import { useTutorial } from '../welcome/tutorials/AppTutorial';
 import { useAppSettings } from './use-app-settings';
+import { useHighlightTutorial } from '../welcome/tutorials/AppHighlightTutorial';
 
 type HotkeyName = typeof kHotkeys[keyof typeof kHotkeys];
 type Descriptor = { mainKey: string | null; mods: Mods; vk: number | null; label: string };
@@ -26,6 +27,7 @@ const useHotkeyEditStore = create<EditStore>((set) => ({
 useAppSettings.subscribe(state => useHotkeyEditStore.getState().stop());
 useMainApp.subscribe(state => useHotkeyEditStore.getState().stop());
 useTutorial.subscribe(state => useHotkeyEditStore.getState().stop());
+useHighlightTutorial.subscribe(state => useHotkeyEditStore.getState().stop());
 
 type Mods = { ctrl: boolean; alt: boolean; shift: boolean };
 const MOD_VKS = new Set([16, 17, 18, 91, 92]); // Shift, Ctrl, Alt, Meta/Win

@@ -18,6 +18,8 @@ export const kHotkeys = {
   mode1v1startStopTimer: 'mode_1v1_start_stop_timer',
   mode1v1resetTimer: 'mode_1v1_reset_timer',
   mode1v1resetTimers: 'mode_1v1_reset_timers',
+  mode1v1SaveChallenge: 'mode_1v1_save_challenge',
+  mode1v1NextGame: 'mode_1v1_next_game',
 
   mapSwitchVar: 'map_switch_variant',
   mapToggleBrowser: 'map_browser',

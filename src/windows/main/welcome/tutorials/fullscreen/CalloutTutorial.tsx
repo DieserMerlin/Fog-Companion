@@ -1,13 +1,13 @@
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
-import { SettingsHotkey } from "../../settings/AppSettingsHotkey";
-import { EnableCalloutFeature } from "../../settings/EnableDisableFeatures";
-import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
-import { MainAppTab, useMainApp } from "../../use-main-app";
+import { SettingsHotkey } from "../../../settings/AppSettingsHotkey";
+import { EnableCalloutFeature } from "../../../settings/EnableDisableFeatures";
+import { AppSettingsSection, useAppSettings } from "../../../settings/use-app-settings";
+import { MainAppTab, useMainApp } from "../../../use-main-app";
 import { CloseTutorialConfirmation, Tutorial, useTutorial } from "../AppTutorial";
 import Link from "@mui/material/Link";
-import { OverwolfLink } from "../../../../utils/mui/OverwolfLink";
-import { MapBrowserHotkeys } from "../../settings/MapBrowserHotkeys";
+import { OverwolfLink } from "../../../../../utils/mui/OverwolfLink";
+import { MapBrowserHotkeys } from "../../../settings/MapBrowserHotkeys";
 
 const openCalloutSettings = () => { useMainApp.setState({ tab: MainAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
 const openAbout = () => { useMainApp.setState({ tab: MainAppTab.ABOUT }); };

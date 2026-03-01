@@ -1,8 +1,9 @@
-import { AppPaginationWrapper, Killer, Mode1v1ChallengeNameSchema, Mode1v1TimerChallenge, useAppPagination } from "@diesermerlin/fog-companion-web";
-import { ArrowForwardIos, Circle, Close, Delete, Edit, Gamepad, Lock, Save } from "@mui/icons-material";
+import { AppPaginationWrapper, DetectionCertainty, HumanReadableCertainty, Killer, Mode1v1ChallengeNameSchema, Mode1v1TimerChallenge, useAppPagination } from "@diesermerlin/fog-companion-web";
+import { ArrowForwardIos, Circle, Close, Delete, Edit, Help, Lock, Save } from "@mui/icons-material";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -29,17 +30,22 @@ import { TimeClock } from "@mui/x-date-pickers/TimeClock";
 import { useDebounce } from "@uidotdev/usehooks";
 import { useLiveQuery } from "dexie-react-hooks";
 import moment from "moment";
-import { forwardRef, ReactNode, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, Fragment, ReactNode, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { AppDB } from "../../../utils/indexeddb/AppDB";
 import { useSession } from "../../../utils/trpc/use-session";
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { useCurrent1v1Challenge } from "../../mode_1v1/use-current-1v1-challenge";
 import { useMode1v1State } from "../../mode_1v1/use-mode-1v1-state";
-import { MainAppTab, useMainApp } from "../use-main-app";
-import { Mode1v1ChallengeManager } from "./mode-1v1-manager";
-import { MODE_1V1_SYNC } from "./mode-1v1-sync";
-import CircularProgress from "@mui/material/CircularProgress";
 import { ACCOUNT_SETTINGS } from "../account/account-settings";
+import { MainAppTab, useMainApp } from "../use-main-app";
+import { Mode1v1Manager } from "./mode-1v1-manager";
+import { MODE_1V1_SYNC } from "./mode-1v1-sync";
+import { AppHighlightTutorialWrapper, HLTElement, useHighlightTutorial } from "../welcome/tutorials/AppHighlightTutorial";
+import { Mode1v1ViewTutorial } from "../welcome/tutorials/highlight/Mode1v1ViewTutorial";
+import { LayoutGroup, motion } from "motion/react";
+import { SettingsHotkey } from "../settings/AppSettingsHotkey";
+
+const MotionPaper = motion.create(Paper);
 
 const momentToMillis = (m: moment.Moment) => m.minutes() * 60_000 + m.seconds() * 1_000 + m.milliseconds();
 
@@ -54,83 +60,146 @@ export const MainMode1v1View = () => {
   const sync = ACCOUNT_SETTINGS.hook(s => s.sync1v1Challenges);
 
   return (
-    <Stack spacing={.5} height={'100%'}>
-      {!loggedIn && (
-        <Alert variant="outlined" color="success">
-          <Link onClick={() => useMainApp.setState({ tab: MainAppTab.ACCOUNT })}>Login</Link> to sync your chases and collect statistics!
-        </Alert>
-      )}
-      {loggedIn && !sync && (
-        <Alert variant="outlined" severity="warning">
-          Syncing is disabled. Enable it in <Link onClick={() => useMainApp.setState({ tab: MainAppTab.ACCOUNT })}>your account</Link>.
-        </Alert>
-      )}
-      <Typography variant="overline">Active Challenge</Typography>
-      <CurrentGame />
-      <Typography variant="overline">Previous Challenges</Typography>
-      <PreviousGames />
-    </Stack>
+    <AppHighlightTutorialWrapper>
+      <LayoutGroup id="mode1v1-challenges">
+        <Stack spacing={.5} height={'100%'}>
+          {!loggedIn && (
+            <Alert variant="outlined" color="success">
+              <Link onClick={() => useMainApp.setState({ tab: MainAppTab.ACCOUNT })}>Login</Link> to sync your chases and collect statistics!
+            </Alert>
+          )}
+          {loggedIn && !sync && (
+            <Alert variant="outlined" severity="warning">
+              Syncing is disabled. Enable it in <Link onClick={() => useMainApp.setState({ tab: MainAppTab.ACCOUNT })}>your account</Link>.
+            </Alert>
+          )}
+          <Stack direction={'row'} spacing={1} alignItems={'center'} width={'100%'}>
+            <Typography variant="overline">Active Challenge</Typography>
+            <span style={{ flexGrow: 1 }} />
+            <Link style={{ fontSize: 12 }} onClick={() => useHighlightTutorial.getState().start(Mode1v1ViewTutorial)}><Help sx={{ fontSize: 12 }} /> Learn how to use this view</Link>
+          </Stack>
+          <HLTElement {...Mode1v1ViewTutorial.CurrentChallenge}>
+            {(key, setRef, highlighted) => <CurrentChallenge setRef={setRef} key={key} />}
+          </HLTElement>
+          <Typography variant="overline">Previous Challenges</Typography>
+          <HLTElement {...Mode1v1ViewTutorial.PreviousChallenges}>
+            {(key, setRef, highlighted) => <PreviousChallenges setRef={setRef} key={key} />}
+          </HLTElement>
+        </Stack>
+      </LayoutGroup>
+    </AppHighlightTutorialWrapper>
   );
 }
 
-const CurrentGame = () => {
-  const manager = useMemo(() => Mode1v1ChallengeManager.Instance(), []);
+const CurrentChallenge = (props: { setRef: (ref: HTMLDivElement) => void }) => {
+  const manager = useMemo(() => Mode1v1Manager.Instance(), []);
 
   const current = useCurrent1v1Challenge();
 
   const currentGame = current?.played?.[(current?.played?.length || 1) - 1];
   const isRunning = useMode1v1State(s => !!s.state?.running);
 
-  const isCommittable = !!current && !!currentGame && !isRunning && (!!currentGame.kllrTime || !!currentGame.survTime);
-  const currentGameFinished = !currentGame || !!currentGame.kllrTime || !!currentGame.survTime;
+  const isCommittable = !!current && !isRunning && manager.isCommittable(current);
+  const currentGameFinished = !isRunning && (!currentGame || !!currentGame.kllrTime || !!currentGame.survTime);
+  const newGameAddable = !!currentGameFinished && ((current?.played?.length || 0) < 30);
 
   useEffect(() => {
-    if (current && (currentGameFinished || !currentGame)) Mode1v1ChallengeManager.Instance().addGame(current);
+    if (current && (currentGameFinished || !currentGame)) Mode1v1Manager.Instance().addGame(current);
   }, [current?.challengeId]);
 
   return (
-    <Paper sx={{ p: 1 }} variant="outlined">
+    <MotionPaper layout layoutId={current?.challengeId || 'current-challenge'} key={current?.challengeId || 'current-challenge'} sx={{ p: 1 }} variant="outlined" ref={props.setRef}>
       <Stack direction={'row'} spacing={1} alignItems={'center'} justifyContent={'center'} fontFamily={'monospace'}>
         {!!current && <>
-          <Stack spacing={1.2} pt={.2} px={.5} fontSize={18}>
-            <b><Points challenge={current} of="self" /></b>
-            <b><Points challenge={current} of="opponent" /></b>
-          </Stack>
-          <EditNames challenge={current} onChange={c => manager.updateChallenge(c)} disabled={isRunning} />
+          <HLTElement {...Mode1v1ViewTutorial.PointsDisplay}>
+            {(key, setRef, highlighted) => <Stack ref={setRef} key={key} spacing={1.2} pt={.2} px={.5} fontSize={18}>
+              <b><Points challenge={current} of="self" /></b>
+              <b><Points challenge={current} of="opponent" /></b>
+            </Stack>}
+          </HLTElement>
+          <HLTElement {...Mode1v1ViewTutorial.EditOpponentNameInput}>
+            {(key, setRef, highlighted) => <EditNames setRef={setRef} key={key} challenge={current} onChange={c => manager.updateChallenge(c)} disabled={!highlighted && isRunning} />}
+          </HLTElement>
         </>}
         {!!currentGame && (
-          <EditGamesMenu current challenge={current} onChange={c => manager.updateChallenge(c)} disabled={isRunning} />
+          <HLTElement {...Mode1v1ViewTutorial.EditGamesMenu}>
+            {(key, setRef, highlighted) => <EditGamesMenu setRef={setRef} current key={key} challenge={current} onChange={c => manager.updateChallenge(c)} disabled={!highlighted && isRunning} />}
+          </HLTElement>
         )}
         <span style={{ flexGrow: 1 }} />
         {!!current && <>
-          <Stack height={'100%'} alignItems={'end'} justifyContent={'center'} style={{ opacity: .7 }} fontSize={12}>
+          <Stack height={'100%'} alignItems={'end'} justifyContent={'center'} style={{ opacity: .7 }} fontSize={10}>
             <small>Challenge {current.challengeId}</small>
             {current.startedAt === current.continuedAt && <span>Started at {new Date(current.startedAt).toLocaleString()}</span>}
             {current.startedAt !== current.continuedAt && <span>Continued at {new Date(current.continuedAt).toLocaleString()}</span>}
             <SyncIndicator challenge={current} />
           </Stack>
-          <Stack spacing={.5}>
-            <Button startIcon={<ArrowForwardIos />} onClick={() => Mode1v1ChallengeManager.Instance().addGame(current)} disabled={!currentGameFinished} color="primary" variant="contained" size="small" sx={{ height: '100%' }}>
-              <Stack spacing={-.5}>
-                <small><b>New game</b></small>
-                <small>in current challenge</small>
-              </Stack>
-            </Button>
-            <Button startIcon={<Save />} onClick={() => manager.createChallenge()} disabled={!isCommittable} color="warning" variant="outlined" size="small" sx={{ height: '100%' }}>
-              <Stack spacing={-.5}>
-                <small><b>Save challenge</b></small>
-                <small>/ Create new</small>
-              </Stack>
-            </Button>
+          <Stack
+            spacing={0.5}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto', // buttons column + hotkeys column
+              rowGap: 0.5,
+              columnGap: 0.5,
+              alignItems: 'center',
+            }}
+          >
+            <HLTElement {...Mode1v1ViewTutorial.NextGameBtn}>
+              {(key, setRef, highlighted) => (
+                <Fragment key={key}>
+                  <Button
+                    ref={setRef}
+                    startIcon={<ArrowForwardIos />}
+                    onClick={() => Mode1v1Manager.Instance().addGame(current)}
+                    disabled={!highlighted && !newGameAddable}
+                    color="primary"
+                    variant="contained"
+                    size="small"
+                    sx={{ height: '100%', width: '100%' }} // takes full first column
+                  >
+                    <Stack spacing={-0.5}>
+                      <small><b>New game</b></small>
+                      <small>in current challenge</small>
+                    </Stack>
+                  </Button>
+
+                  <SettingsHotkey name="mode_1v1_next_game" small />
+                </Fragment>
+              )}
+            </HLTElement>
+
+            <HLTElement {...Mode1v1ViewTutorial.CommitChallengeBtn}>
+              {(key, setRef, highlighted) => (
+                <Fragment key={key}>
+                  <Button
+                    ref={setRef}
+                    startIcon={<Save />}
+                    onClick={() => manager.commit(current)}
+                    disabled={!highlighted && !isCommittable}
+                    color="warning"
+                    variant="outlined"
+                    size="small"
+                    sx={{ height: '100%', width: '100%' }}
+                  >
+                    <Stack spacing={-0.5}>
+                      <small><b>Save challenge</b></small>
+                      <small>/ Create new</small>
+                    </Stack>
+                  </Button>
+
+                  <SettingsHotkey name="mode_1v1_save_challenge" small />
+                </Fragment>
+              )}
+            </HLTElement>
           </Stack>
         </>}
       </Stack>
-    </Paper>
+    </MotionPaper>
   );
 }
 
-const PreviousGames = () => {
-  const manager = useMemo(() => Mode1v1ChallengeManager.Instance(), []);
+const PreviousChallenges = (props: { setRef: (ref: HTMLDivElement) => void }) => {
+  const manager = useMemo(() => Mode1v1Manager.Instance(), []);
   const { page, setPage, take, setTake, takeOptions } = useAppPagination();
 
   const total = useLiveQuery(() => AppDB.mode1v1Challenges.count(), [page]) - 1;
@@ -143,6 +212,8 @@ const PreviousGames = () => {
   const [del, setDel] = useState<Mode1v1TimerChallenge | null>(null);
   const [editNames, setEditNames] = useState<Mode1v1TimerChallenge | null>(null);
 
+  const ownName = useSession(s => s.session?.user?.mainAuth.displayName);
+
   return (
     <>
       <DeleteDialog title={<>Delete this challenge?</>} open={!!del} onClose={() => setDel(null)} onConfirm={() => {
@@ -150,46 +221,48 @@ const PreviousGames = () => {
         setDel(null);
       }} />
       <EditNamesDialog open={!!editNames} challenge={editNames} onChange={c => manager.updateChallenge(c)} onClose={() => setEditNames(null)} />
-      <AppPaginationWrapper {...{ page, setPage, take, setTake, takeOptions, data: { page, pages, results: next, take, total }, isFetching: false, refetch: () => void 0, loadingText: '' }}>
-        <Stack maxHeight={'100%'} overflow={'auto'} spacing={1} ref={scrollTopRef}>
-          {next?.map(c => (
-            <Paper sx={{ p: 1 }}>
-              <Stack width={'100%'} spacing={1}>
-                <Stack direction={'row'} width={'100%'} fontSize={10} spacing={.5}>
-                  <span style={{ fontSize: 14 }}>{c.names.self || 'You'} <b><Points challenge={c} of="self" /></b> - <b><Points challenge={c} of="opponent" /></b> {c.names.opponent || 'Unnamed Opponent'} <small style={{ opacity: .6 }}><Link onClick={() => setEditNames(c)}><Edit sx={{ fontSize: 11 }} />Edit names</Link></small></span>
-                  <span style={{ flexGrow: 1 }} />
-                  <span style={{ opacity: .7 }}>Challenge {c.challengeId}</span>
-                </Stack>
-                <Stack direction={'row'} alignItems={'center'} spacing={1}>
-                  <EditGamesMenu challenge={c} onChange={c => manager.updateChallenge(c)} />
-                  <Grid container spacing={.5}>
-                    {[...new Set(c.played.map(g => g.killer))].filter(k => !!k).map(k => (
-                      <Grid>
-                        <Chip
-                          size='small'
-                          variant="outlined"
-                          label={killerToNormalCase(k as Killer) + ' Chase' + (c.played.filter(p => p.killer === k).length > 1 ? 's' : '')}
-                          color="primary"
-                          icon={<span style={{ fontFamily: 'monospace', fontSize: 12, padding: 4 }}>{c.played.filter(p => p.killer === k).length}</span>}
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                  <span style={{ flexGrow: 1 }} />
-                  <Stack fontSize={12} textAlign={'right'}>
-                    <span>Started at {new Date(c.startedAt).toLocaleString()}</span>
-                    {c.continuedAt !== c.startedAt && <span>Continued at {new Date(c.continuedAt).toLocaleString()}</span>}
-                    <SyncIndicator challenge={c} />
+      <Stack height={'100%'} overflow={'hidden'} ref={props.setRef}>
+        <AppPaginationWrapper {...{ page, setPage, take, setTake, takeOptions, data: { page, pages, results: next, take, total }, isFetching: false, refetch: () => void 0, loadingText: '' }}>
+          <Stack ref={scrollTopRef} maxHeight={'100%'} overflow={'auto'} spacing={1}>
+            {next?.map(c => (
+              <MotionPaper layout key={c.challengeId} layoutId={c.challengeId} sx={{ p: 1 }}>
+                <Stack width={'100%'} spacing={1}>
+                  <Stack direction={'row'} width={'100%'} fontSize={10} spacing={.5}>
+                    <span style={{ fontSize: 14 }}>{ownName || 'You'} <b><Points challenge={c} of="self" /></b> - <b><Points challenge={c} of="opponent" /></b> {c.names.opponent || 'Unnamed Opponent'} <small style={{ opacity: .6 }}><Link onClick={() => setEditNames(c)}><Edit sx={{ fontSize: 11 }} />Edit</Link></small></span>
+                    <span style={{ flexGrow: 1 }} />
+                    <small style={{ opacity: .7 }}>Challenge {c.challengeId}</small>
                   </Stack>
-                  <IconButton color="error" onClick={() => setDel(c)}>
-                    <Delete />
-                  </IconButton>
+                  <Stack direction={'row'} alignItems={'center'} spacing={1}>
+                    <EditGamesMenu challenge={c} onChange={c => manager.updateChallenge(c)} />
+                    <Grid container spacing={.5}>
+                      {[...new Set(c.played.map(g => g.killer))].filter(k => !!k).map(k => (
+                        <Grid>
+                          <Chip
+                            size='small'
+                            variant="outlined"
+                            label={killerToNormalCase(k as Killer) + ' Chase' + (c.played.filter(p => p.killer === k).length > 1 ? 's' : '')}
+                            icon={<span style={{ fontFamily: 'monospace', fontSize: 12, padding: 4 }}>{c.played.filter(p => p.killer === k).length}</span>}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                    <span style={{ flexGrow: 1 }} />
+                    <Stack fontSize={10} textAlign={'right'}>
+                      <span>Started at {new Date(c.startedAt).toLocaleString()}</span>
+                      {c.continuedAt !== c.startedAt && <span>Continued at {new Date(c.continuedAt).toLocaleString()}</span>}
+                      <SyncIndicator challenge={c} />
+                      <Button size="small" disabled={c.played.length >= 30} onClick={() => manager.continueChallenge(c)}>Continue</Button>
+                    </Stack>
+                    <IconButton color="error" onClick={() => setDel(c)}>
+                      <Delete />
+                    </IconButton>
+                  </Stack>
                 </Stack>
-              </Stack>
-            </Paper>
-          ))}
-        </Stack>
-      </AppPaginationWrapper>
+              </MotionPaper>
+            ))}
+          </Stack>
+        </AppPaginationWrapper>
+      </Stack>
     </>
   );
 }
@@ -213,9 +286,8 @@ const SyncIndicator = (props: { challenge: Mode1v1TimerChallenge & { syncError?:
 
 type EditNamesRef = { isDebouncing: boolean };
 
-const EditNames = forwardRef<EditNamesRef, { challenge: Mode1v1TimerChallenge, onChange: (c: Mode1v1TimerChallenge) => void, disabled?: boolean }>((props, ref) => {
-  const [ownName, setOwnName] = useState(props.challenge.names.self || '');
-  useEffect(() => setOwnName(props.challenge.names.self || ''), [props.challenge]);
+const EditNames = forwardRef<EditNamesRef, { challenge: Mode1v1TimerChallenge, onChange: (c: Mode1v1TimerChallenge) => void, disabled?: boolean, setRef?: (ref: HTMLDivElement) => void }>((props, ref) => {
+  const ownName = useSession(s => s.session?.user?.mainAuth.displayName);
 
   const [oppName, setOppName] = useState(props.challenge.names.opponent || '');
   useEffect(() => setOppName(props.challenge.names.opponent || ''), [props.challenge]);
@@ -229,14 +301,17 @@ const EditNames = forwardRef<EditNamesRef, { challenge: Mode1v1TimerChallenge, o
 
   useEffect(() => {
     if (isDebouncing) return;
-    props.challenge.names = { self: Mode1v1ChallengeNameSchema.parse(ownName), opponent: Mode1v1ChallengeNameSchema.parse(oppName) };
+    props.challenge.names = { opponent: Mode1v1ChallengeNameSchema.parse(oppName) };
     props.onChange(props.challenge);
   }, [isDebouncing]);
 
   return (
-    <Stack spacing={.5}>
-      <TextField color={isDebouncing ? 'warning' : undefined} disabled={props.disabled} size="small" label={'Your name'} value={isDebouncing ? ownName : props.challenge.names.self || ''} onChange={e => setOwnName(e.target.value)} />
-      <TextField color={isDebouncing ? 'warning' : undefined} disabled={props.disabled} size="small" label={'Opponent name'} value={isDebouncing ? oppName : props.challenge.names.opponent || ''} onChange={e => setOppName(e.target.value)} />
+    <Stack spacing={-.8} alignItems={'center'} justifyContent={'center'} ref={props.setRef}>
+      <Paper variant="outlined" sx={{ height: 40, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography>{ownName || "You"}</Typography>
+      </Paper>
+      <Typography sx={{ bgcolor: 'background.paper', position: 'relative', zIndex: 10, px: .3 }}>vs</Typography>
+      <TextField sx={{ position: 'relative', zIndex: 9 }} color={isDebouncing ? 'warning' : 'info'} disabled={props.disabled} size="small" label={'Opponent'} value={isDebouncing ? oppName : props.challenge.names.opponent || ''} onChange={e => setOppName(e.target.value)} />
     </Stack>
   )
 });
@@ -245,8 +320,8 @@ export const EditNamesDialog = (props: { open: boolean, onClose: () => void, cha
   const [isDebouncing, setIsDebouncing] = useState(false);
 
   return (
-    <Dialog open={props.open} onClose={() => !isDebouncing && props.onClose()} transitionDuration={0}>
-      <DialogTitle>Edit names</DialogTitle>
+    <Dialog slotProps={{ paper: { elevation: 0 } }} open={props.open} onClose={() => !isDebouncing && props.onClose()} transitionDuration={0}>
+      <DialogTitle>Edit opponent name</DialogTitle>
       <DialogContent>
         <Stack py={1}>
           {!!props.challenge && <EditNames ref={ref => ref ? setIsDebouncing(ref.isDebouncing) : setIsDebouncing(false)} {...props} />}
@@ -271,7 +346,7 @@ const DeleteDialog = (props: { open: boolean, onClose: () => void, onConfirm: ()
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button fullWidth variant="contained" startIcon={<Close />} color="error" onClick={props.onConfirm}>
+        <Button autoFocus fullWidth variant="contained" startIcon={<Close />} color="error" onClick={props.onConfirm}>
           Delete
         </Button>
         <Button fullWidth startIcon={<Close />} onClick={props.onClose}>Close</Button>
@@ -280,7 +355,7 @@ const DeleteDialog = (props: { open: boolean, onClose: () => void, onConfirm: ()
   )
 }
 
-const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChallenge, onChange: (c: Mode1v1TimerChallenge) => void, disabled?: boolean }) => {
+const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChallenge, onChange: (c: Mode1v1TimerChallenge) => void, disabled?: boolean, setRef?: (ref: HTMLButtonElement) => void }) => {
   const editBtnRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [_editGame, setEditGame] = useState<number | null>(null);
@@ -289,14 +364,21 @@ const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChalle
   const editGame = _editGame !== null ? props.challenge.played[_editGame] : null;
   const delGame = _delGame !== null ? props.challenge.played[_delGame] : null;
 
-  console.log({ editGame, delGame });
-
   useEffect(() => {
     if (!props.current) return;
     setMenuOpen(false);
     setEditGame(null);
     setDelGame(null);
   }, [props.disabled, props.challenge.challengeId]);
+
+  const t = useTheme();
+
+  const currentGame = props.challenge.played[(props.challenge.played.length || 1) - 1];
+  const killer = currentGame?.killer;
+  const certainty = currentGame?.killerCertainty;
+  const certaintyColor = certainty ? HumanReadableCertainty[certainty] : t.palette.grey[500];
+
+  const currentGameFinished = currentGame && !!currentGame.survTime && !!currentGame.kllrTime;
 
   return (
     <>
@@ -305,7 +387,7 @@ const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChalle
         props.challenge.played = props.challenge.played.filter(g => g !== delGame);
         props.onChange(props.challenge);
       }} />
-      <Dialog open={!!editGame} onClose={() => setEditGame(null)} transitionDuration={0} maxWidth={'sm'} fullWidth slotProps={{ paper: { sx: { overflow: 'visible' } } }}>
+      <Dialog open={!!editGame} onClose={() => setEditGame(null)} transitionDuration={0} maxWidth={'sm'} fullWidth slotProps={{ paper: { elevation: 1, sx: { overflow: 'visible' } } }}>
         <DialogTitle>Edit game #{props.challenge.played.indexOf(editGame) + 1}</DialogTitle>
         <DialogContent>
           {!!editGame && (
@@ -314,8 +396,9 @@ const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChalle
                 You can edit the played killer as well as timer values. <b>Be careful tho.</b> This will influence your 1v1 statistics if upload is enabled.
               </p>
               <Stack spacing={1} width={'100%'} direction={'row'} alignItems={'center'} justifyContent={'center'}>
-                <KillerSelector current={props.current} killer={editGame.killer as Killer || null} onChange={k => {
+                <KillerSelector current={props.current} killer={editGame.killer as Killer || null} certainty={editGame.killer && editGame.killerCertainty || null} onChange={k => {
                   editGame.killer = k;
+                  editGame.killerCertainty = k ? DetectionCertainty.CONFIRMED : null;
                   props.onChange(props.challenge);
                 }} />
                 <Stack direction={'row'} alignItems={'center'} spacing={.5}>
@@ -344,10 +427,20 @@ const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChalle
           </DialogActions>
         </DialogContent>
       </Dialog>
-      <Button disabled={props.disabled} startIcon={<Gamepad />} color="info" variant="outlined" size="small" sx={{ height: props.current ? 86 : 45, width: 170 }} ref={editBtnRef} onClick={() => setMenuOpen(true)}>
-        <Stack spacing={-.5}>
+      <Button ref={ref => { props.setRef?.(ref); editBtnRef.current = ref }} disabled={props.disabled} startIcon={<Edit />} color={"info"} variant="outlined" size="small" sx={{ height: props.current ? 86 : 45, width: props.current ? 220 : 170, overflow: 'hidden' }} onClick={() => setMenuOpen(true)}>
+        <Stack spacing={-.5} width={'100%'}>
           <b>{props.current ? <>{(props.challenge.played.length || 1)}. Game</> : <>{props.challenge.played.length} Game{props.challenge.played.length > 1 ? 's' : ''}</>}</b>
           <small>Edit games/times</small>
+          {props.current && <Stack direction={'row'} sx={{ fontSize: 10 }} pt={1}>
+            <Stack direction={'row'} spacing={.5} width={'50%'} overflow={'hidden'} textOverflow={'ellipsis'} whiteSpace={'nowrap'} alignItems={'center'}>
+              <Circle sx={{ fontSize: 10, }} color={currentGameFinished ? 'success' : 'error'} />
+              <span>{currentGameFinished ? 'finished' : 'unfinished'}</span>
+            </Stack>
+            <Stack direction={'row'} spacing={.5} width={'50%'} overflow={'hidden'} textOverflow={'ellipsis'} whiteSpace={'nowrap'} alignItems={'center'}>
+              <Circle sx={{ fontSize: 10, color: certaintyColor }} />
+              <span>{killer || 'No Killer'}</span>
+            </Stack>
+          </Stack>}
         </Stack>
       </Button>
       <Menu
@@ -403,10 +496,10 @@ const EditGamesMenu = (props: { current?: boolean, challenge: Mode1v1TimerChalle
   )
 }
 
-const KillerSelector = (props: { current?: boolean, killer: Killer | null, onChange: (k: Killer | null) => void }) => {
+const KillerSelector = (props: { current?: boolean, killer: Killer | null, certainty: DetectionCertainty | null, onChange: (k: Killer | null) => void }) => {
   const autoDetection = BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures && s.enableKillerDetection);
   return (
-    <Stack spacing={.5} width={'100%'} alignItems={'center'} justifyContent={'center'}>
+    <Stack spacing={1} width={'100%'} alignItems={'center'} justifyContent={'center'}>
       <FormControl fullWidth>
         <InputLabel id="killer-selection-label">Killer</InputLabel>
         <Select<Killer | 'NONE'>
@@ -423,7 +516,10 @@ const KillerSelector = (props: { current?: boolean, killer: Killer | null, onCha
           {Object.values(Killer).map(k => <MenuItem value={k as Killer}>{killerToNormalCase(k)}</MenuItem>)}
         </Select>
       </FormControl>
-      {props.current && <small style={{ opacity: .7 }}>Auto-detection is turned {autoDetection ? 'on' : 'off'}.</small>}
+      <Stack>
+        {(props.killer && props.certainty) && <small>Detection certainty: <span style={{ color: HumanReadableCertainty[props.certainty].color }}>{HumanReadableCertainty[props.certainty].text}</span></small>}
+        {props.current && <small style={{ opacity: .7 }}>Auto-detection is turned {autoDetection ? 'on' : 'off'}.</small>}
+      </Stack>
     </Stack>
   )
 }

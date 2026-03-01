@@ -1,15 +1,16 @@
-import { Mode1v1TimerChallenge } from "@diesermerlin/fog-companion-web";
+import { Mode1v1TimerChallenge, Mode1v1TimerTheme } from "@diesermerlin/fog-companion-web";
 import { AppDB } from "../../../utils/indexeddb/AppDB";
 import { useSession } from "../../../utils/trpc/use-session";
 import { MODE_1V1_SYNC } from "./mode-1v1-sync";
 import { trpcClient } from "../../../utils/trpc/trpc";
 import { ACCOUNT_SETTINGS } from "../account/account-settings";
+import { MODE_1V1_THEME } from "../../mode_1v1/mode_1v1-settings";
 
-export class Mode1v1ChallengeManager {
+export class Mode1v1Manager {
   private appDb = AppDB;
 
-  public static Instance(): Mode1v1ChallengeManager {
-    return overwolf.windows.getMainWindow().cache.mode1v1ChallengeManager || (overwolf.windows.getMainWindow().cache.mode1v1ChallengeManager = new Mode1v1ChallengeManager());
+  public static Instance(): Mode1v1Manager {
+    return overwolf.windows.getMainWindow().cache.mode1v1ChallengeManager || (overwolf.windows.getMainWindow().cache.mode1v1Manager = new Mode1v1Manager());
   }
 
   private constructor() {
@@ -20,31 +21,15 @@ export class Mode1v1ChallengeManager {
     if (!(await this.appDb.mode1v1Challenges.count()))
       await this.createChallenge();
 
-    useSession.subscribe(async (s, p) => {
-      if (s.session?.user?.mainAuth.displayName && s.session?.user?.mainAuth.displayName !== p.session?.user?.mainAuth.displayName)
-        await this.updateSelfName(s.session.user.mainAuth.displayName);
-    });
-
-    if (useSession.getState().session?.user) await this.updateSelfName(useSession.getState().session?.user?.mainAuth.displayName);
-
-    this.startSyncing();
-  }
-
-  async updateSelfName(name: string) {
-    await this.appDb.transaction('rw', this.appDb.mode1v1Challenges, async () => {
-      await this.appDb.mode1v1Challenges.each(async challenge => {
-        if (!challenge.names.self) {
-          await this.appDb.mode1v1Challenges.update(challenge.challengeId, { ...challenge, names: { ...challenge.names, self: name } });
-        }
-      });
-    });
+    this.scheduleSync();
+    ACCOUNT_SETTINGS.hook.subscribe((s, p) => (s.sync1v1Challenges !== p.sync1v1Challenges || s.sync1v1Interval !== p.sync1v1Interval) && this.scheduleSync());
   }
 
   async createChallenge() {
     const now = Date.now();
     const challenge: Mode1v1TimerChallenge = {
       challengeId: self.crypto.randomUUID(),
-      names: { opponent: '', self: useSession.getState().session?.user?.mainAuth?.displayName || '' },
+      names: { opponent: '' },
       played: [{ gameId: self.crypto.randomUUID(), playedAt: now, kllrTime: 0, survTime: 0 }],
       startedAt: now,
       continuedAt: now,
@@ -57,8 +42,10 @@ export class Mode1v1ChallengeManager {
   }
 
   async continueChallenge(challenge: Mode1v1TimerChallenge) {
+    const current = await this.currentChallenge();
     await this.appDb.transaction('rw', this.appDb.mode1v1Challenges, async () => {
       await this.appDb.mode1v1Challenges.upsert(challenge.challengeId, { ...challenge, continuedAt: Date.now() });
+      if (current && !this.isCommittable(current)) await this.removeChallenge(current.challengeId);
     });
   }
 
@@ -90,9 +77,21 @@ export class Mode1v1ChallengeManager {
     return await this.appDb.mode1v1Challenges.orderBy('startedAt').reverse().first();
   }
 
+  isCommittable(challenge: Mode1v1TimerChallenge) {
+    return challenge.played.some(c => !!c.kllrTime || !!c.survTime);
+  }
+
+  async commit(challenge: Mode1v1TimerChallenge) {
+    if (!this.isCommittable(challenge)) return false;
+    challenge.played = challenge.played.filter(g => !!g.kllrTime || !!g.survTime);
+    await this.updateChallenge(challenge);
+    await this.createChallenge();
+    return true;
+  }
+
   private syncTimeout: NodeJS.Timeout;
   private syncLock = false;
-  async startSyncing() {
+  async syncCycle() {
     if (this.syncLock) return;
     this.syncLock = true;
 
@@ -143,7 +142,42 @@ export class Mode1v1ChallengeManager {
     } finally {
       this.syncLock = false;
       MODE_1V1_SYNC.update({ syncing: null });
-      this.syncTimeout = setTimeout(() => this.startSyncing(), 10_000);
+      this.scheduleSync();
     }
+  }
+
+  scheduleSync() {
+    if (this.syncTimeout) clearTimeout(this.syncTimeout);
+    this.syncTimeout = setTimeout(() => this.syncCycle(), ACCOUNT_SETTINGS.getValue().sync1v1Interval);
+  }
+
+  themes() {
+    return AppDB.mode1v1Themes.orderBy('updatedAt').reverse().toArray();
+  }
+
+  saveTheme(theme: Mode1v1TimerTheme) {
+    const now = Date.now();
+    return AppDB.transaction('rw', AppDB.mode1v1Themes, async () => {
+      const existing = await AppDB.mode1v1Themes.get(theme.themeId);
+      if (existing) return await AppDB.mode1v1Themes.update(theme.themeId, { ...theme, updatedAt: now, newestVersion: theme.versionId });
+      else return await AppDB.mode1v1Themes.add({ ...theme, addedAt: now, updatedAt: now, newestVersion: theme.versionId });
+    });
+  }
+
+  removeTheme(themeId: string) {
+    if (MODE_1V1_THEME.getValue().theme?.themeId === themeId) MODE_1V1_THEME.update({ theme: null });
+    return AppDB.mode1v1Themes.delete(themeId);
+  }
+
+  putNewestThemeVersion(themeId: string, versionId: string) {
+    return AppDB.mode1v1Themes.update(themeId, { newestVersion: versionId });
+  }
+
+  fetchThemeUpdates() {
+    // TODO implement
+  }
+
+  updateTheme(themeId: string) {
+    // TODO implement
   }
 }

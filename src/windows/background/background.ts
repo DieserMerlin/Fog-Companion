@@ -4,7 +4,7 @@ import {
   OWWindow
 } from '@overwolf/overwolf-api-ts';
 
-import { Mode1v1TimerChallenge } from '@diesermerlin/fog-companion-web';
+import { Mode1v1TimerRef } from '@diesermerlin/fog-companion-web';
 import { PSM } from 'tesseract.js';
 import { kHotkeys, kWindowNames } from '../../consts';
 import { DetectionCertaintyWeight, GameState, GameStateGuesser, GameStateType } from '../../game_state/GameState';
@@ -13,7 +13,7 @@ import { createBus, TypedBus } from '../../utils/window/window-bus';
 import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../main/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
-import { Mode1v1ChallengeManager } from '../main/mode-1v1/mode-1v1-manager';
+import { Mode1v1Manager } from '../main/mode-1v1/mode-1v1-manager';
 
 /* ============================================================================
  * App-wide event bus
@@ -34,6 +34,7 @@ declare global {
     cache: { [key: string]: any };
     gameInfo: overwolf.games.RunningGameInfo | null;
     focusedWindows: string[],
+    mode1v1TimerApi: Mode1v1TimerRef;
   }
 }
 
@@ -89,7 +90,7 @@ class BackgroundController {
     this.guesser.bus.on('gameState', gs => window.bus.emit('game-state', gs));
 
     // Initialize Mode1v1ChallangeManager
-    Mode1v1ChallengeManager.Instance();
+    Mode1v1Manager.Instance();
 
     // Initialize focused windows object.
     window.focusedWindows = [];
@@ -495,20 +496,23 @@ class BackgroundController {
       this.lastState = gs;
 
       if (lastState?.type === GameStateType.MATCH && gs.type !== GameStateType.MATCH) {
-        const challenge = await Mode1v1ChallengeManager.Instance().currentChallenge();
-        await Mode1v1ChallengeManager.Instance().addGame(challenge, true);
+        window.mode1v1TimerApi?.startStop(false);
+        setTimeout(async () => {
+          const challenge = await Mode1v1Manager.Instance().currentChallenge();
+          await Mode1v1Manager.Instance().addGame(challenge, true);
+        }, 1000);
       }
 
       if (!gs.killer) return;
 
-      const challenge = await Mode1v1ChallengeManager.Instance().currentChallenge();
+      const challenge = await Mode1v1Manager.Instance().currentChallenge();
       const game = challenge?.played[(challenge?.played?.length || 1) - 1];
       if (!game) return;
 
-      if (DetectionCertaintyWeight[gs.killer.certainty] > (DetectionCertaintyWeight[game.killerCertainty] || 0)) {
+      if (DetectionCertaintyWeight[gs.killer.certainty] >= (DetectionCertaintyWeight[game.killerCertainty] || 0)) {
         game.killer = gs.killer.name
         game.killerCertainty = gs.killer.certainty;
-        await Mode1v1ChallengeManager.Instance().updateChallenge(challenge);
+        await Mode1v1Manager.Instance().updateChallenge(challenge);
       }
     });
   }

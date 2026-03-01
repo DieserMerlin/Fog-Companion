@@ -1,6 +1,6 @@
 {
   "name": "overwolf-dbd-comp-companion",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Companion app for the DBD competitive scene.",
   "main": "index.js",
   "scripts": {
@@ -35,7 +35,7 @@
     "zip-a-folder": "^0.0.12"
   },
   "dependencies": {
-    "@diesermerlin/fog-companion-web": "^0.1.17",
+    "@diesermerlin/fog-companion-web": "^0.1.26",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@monaco-editor/react": "^4.8.0-rc.2",

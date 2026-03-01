@@ -1,11 +1,11 @@
 import Link from "@mui/material/Link";
-import { AppSettingsSection, useAppSettings } from "../../settings/use-app-settings";
-import { MainAppTab, useMainApp } from "../../use-main-app";
+import { AppSettingsSection, useAppSettings } from "../../../settings/use-app-settings";
+import { MainAppTab, useMainApp } from "../../../use-main-app";
 import { CloseTutorialConfirmation, Tutorial, useTutorial } from "../AppTutorial";
-import { SettingsHotkey } from "../../settings/AppSettingsHotkey";
+import { SettingsHotkey } from "../../../settings/AppSettingsHotkey";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
-import { Enable1v1ModeFeature } from "../../settings/EnableDisableFeatures";
+import { Enable1v1ModeFeature } from "../../../settings/EnableDisableFeatures";
 
 const open1v1Settings = () => { useMainApp.setState({ tab: MainAppTab.SETTINGS }); useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 }); };
 const SettingsLink = () => <CloseTutorialConfirmation onClose={open1v1Settings}>Settings</CloseTutorialConfirmation>;

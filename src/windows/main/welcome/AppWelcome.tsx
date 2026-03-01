@@ -1,6 +1,6 @@
 import { Group, Help, Map, Settings, Timer, TipsAndUpdates } from "@mui/icons-material";
 import { Alert, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, Grid, Link, Stack, Typography } from "@mui/material";
-import { PropsWithChildren, ReactElement, ReactNode, memo, useCallback } from "react";
+import { memo, PropsWithChildren, ReactElement, ReactNode, useCallback } from "react";
 
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { INGAME_SETTINGS } from "../in_game-settings";
@@ -9,10 +9,13 @@ import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeatur
 import { AppSettingsSection, useAppSettings } from "../settings/use-app-settings";
 import { MainAppTab, useMainApp } from "../use-main-app";
 import { AppDetectionDisplay } from "./AppDetectionDisplay";
-import { useTutorial } from "./AppTutorial";
-import { CALLOUT_TUTORIAL } from "./tutorials/CalloutTutorial";
-import { MODE_1V1_TUTORIAL } from "./tutorials/Mode1v1Tutorial";
-import { WELCOME_TUTORIALS } from "./tutorials/WelcomeTutorial";
+import { AppHighlightTutorialWrapper, HighlightTutorialElementHelper, HLTElement, useHighlightTutorial } from "./tutorials/AppHighlightTutorial";
+import { useTutorial } from "./tutorials/AppTutorial";
+import { CALLOUT_TUTORIAL } from "./tutorials/fullscreen/CalloutTutorial";
+import { MODE_1V1_TUTORIAL } from "./tutorials/fullscreen/Mode1v1Tutorial";
+import { HomeViewTutorial } from "./tutorials/highlight/HomeViewTutorial";
+
+type CardProps = { setRef?: (ref: HTMLDivElement) => void, buttonTutorial?: true };
 
 /** ---------------- Primitives ---------------- */
 
@@ -25,10 +28,12 @@ const OnboardingCard = memo((
     onLearnMore?: () => void;
     enableDisable?: ReactElement;
     enabled?: boolean;
-  }>
+  } & CardProps>
 ) => {
+  const tutorialOpen = useHighlightTutorial(s => !!s.sequence && typeof s.current === 'number');
+
   return (
-    <Grid size={{ xs: 6 }} sx={{ flexGrow: 1, position: 'relative', opacity: props.enabled ? 1 : 0.5 }}>
+    <Grid size={{ xs: 6 }} sx={{ flexGrow: 1, position: 'relative', opacity: props.enabled || tutorialOpen ? 1 : 0.5 }} ref={props.setRef}>
       <Card
         sx={{ width: '100%', height: '100%' }}
       >
@@ -40,19 +45,23 @@ const OnboardingCard = memo((
               <span style={{ flexGrow: 1 }} />
               <span>{props.enableDisable}</span>
             </Stack>
-            <Stack spacing={1} width="100%" flexGrow={1} overflow={'auto'}>
+            <Stack spacing={1} width="100%" height={'100%'} justifyContent={'center'} flexGrow={1} overflow={'auto'}>
               {props.children}
             </Stack>
             {!!props.onLearnMore && !!props.onSettings && (
               <Stack direction={'row'} spacing={1}>
                 {props.onLearnMore &&
-                  <Button size="small" variant="outlined" color="info" startIcon={<Help />} onClick={props.onLearnMore}>
-                    Learn more
-                  </Button>}
+                  <HLTElement {...HomeViewTutorial.LearnMoreBtn} ignore={!props.buttonTutorial}>
+                    {(key, setRef, highlighted) => (<Button ref={setRef} size="small" variant="outlined" color="info" startIcon={<Help />} onClick={props.onLearnMore}>
+                      Learn more
+                    </Button>)}
+                  </HLTElement>}
                 {props.onSettings &&
-                  <Button size="small" variant="outlined" startIcon={<Settings />} onClick={props.onSettings}>
-                    Settings
-                  </Button>}
+                  <HLTElement {...HomeViewTutorial.SettingsBtn} ignore={!props.buttonTutorial}>
+                    {(key, setRef, highlighted) => (<Button ref={setRef} size="small" variant="outlined" startIcon={<Settings />} onClick={props.onSettings}>
+                      Settings
+                    </Button>)}
+                  </HLTElement>}
               </Stack>
             )}
           </Stack>
@@ -65,7 +74,7 @@ OnboardingCard.displayName = 'OnboardingCard';
 
 /** ---------------- Blocks ---------------- */
 
-const TimerCard = memo(() => {
+const TimerCard = memo((props: CardProps) => {
   const openSettings = useCallback(() => {
     useMainApp.setState({ tab: MainAppTab.SETTINGS });
     useAppSettings.setState({ expand: AppSettingsSection.MODE_1v1 });
@@ -82,8 +91,9 @@ const TimerCard = memo(() => {
       title="Mode: 1v1"
       onSettings={openSettings}
       onLearnMore={openTutorial}
-      enableDisable={<Enable1v1ModeFeature small />}
+      enableDisable={<HLTElement key={'timer-card-enable-disable'} {...HomeViewTutorial.ToggleModeSwitch}>{(key, setRef, highlighted) => <HighlightTutorialElementHelper key={key} setRef={setRef}><Enable1v1ModeFeature small /></HighlightTutorialElementHelper>}</HLTElement>}
       img=""
+      {...props}
     >
       <Typography variant="body2">
         Use the <b>1v1 timer</b> to track your chase time. No external app or smartphone needed. <b>Crouch</b> or <b>Swing</b> to start the timer.
@@ -96,13 +106,14 @@ const TimerCard = memo(() => {
 });
 TimerCard.displayName = 'TimerCard';
 
-const ScrimsCard = memo(() => {
+const ScrimsCard = memo((props: CardProps) => {
   return (
     <OnboardingCard
       enabled={false}
       icon={<Group />}
       title="Mode: Scrims/Tournaments"
       img=""
+      {...props}
     >
       <Alert variant="outlined" severity="warning" style={{ height: '100%', display: 'flex', alignItems: 'center' }}>This mode is not yet available.</Alert>
     </OnboardingCard>
@@ -110,7 +121,7 @@ const ScrimsCard = memo(() => {
 });
 ScrimsCard.displayName = 'ScrimsCard';
 
-const CalloutCard = memo(() => {
+const CalloutCard = memo((props: CardProps) => {
   const openSettings = useCallback(() => {
     useMainApp.setState({ tab: MainAppTab.SETTINGS });
     useAppSettings.setState({ expand: AppSettingsSection.CALLOUT });
@@ -129,6 +140,7 @@ const CalloutCard = memo(() => {
       enableDisable={<EnableCalloutFeature small />}
       enabled={BACKGROUND_SETTINGS.hook(s => s.calloutOverlay)}
       img=""
+      {...props}
     >
       <Typography variant="body2">
         <Stack spacing={1}>
@@ -147,7 +159,7 @@ const CalloutCard = memo(() => {
 });
 CalloutCard.displayName = 'CalloutCard';
 
-const SmartFeaturesCard = memo(() => {
+const SmartFeaturesCard = memo((props: CardProps) => {
   return (
     <OnboardingCard
       icon={<TipsAndUpdates />}
@@ -155,8 +167,9 @@ const SmartFeaturesCard = memo(() => {
       enableDisable={<EnableSmartFeatures />}
       enabled={BACKGROUND_SETTINGS.hook(s => s.enableSmartFeatures)}
       img=""
+      {...props}
     >
-      <Stack spacing={1} height={'100%'}>
+      <Stack spacing={1}>
         <small style={{ opacity: .6 }}>
           Allows the app to detect the game state using screenshots.
           Disable this if you notice problems with your performance.
@@ -170,8 +183,8 @@ const SmartFeaturesCard = memo(() => {
         </Stack>
         <Stack direction={'row'} alignItems={'center'} fontSize={'.8em'}>
           <Stack flexGrow={1}>
-            <span>Auto-Detect M2 killers</span>
-            <small style={{ opacity: .6 }}>Start the 1v1 timer on M2 for Nurse and Blight.</small>
+            <span>Auto-Detect killers</span>
+            <small style={{ opacity: .6 }}>Tries to identify the current killer for stats and switch between M1/M2 for timer-start.</small>
           </Stack>
           <EnableKillerDetectionFeature small />
         </Stack>
@@ -200,29 +213,47 @@ export const AppWelcome = () => {
   const close = () => overwolf.windows.getMainWindow().close();
 
   return (
-    <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={1}>
-      <Stack>
-        <Typography variant="h5">Welcome to Fog Companion for competitive Dead by Daylight</Typography>
-        <Link variant="caption" style={{ opacity: .8 }} onClick={() => useTutorial.setState({ tutorials: WELCOME_TUTORIALS })}>Learn what this app can do for you.</Link>
-      </Stack>
-      <Grid container flexGrow={1} spacing={1} width="100%">
-        <TimerCard />
-        <ScrimsCard />
-        <CalloutCard />
-        <SmartFeaturesCard />
-      </Grid>
-      <Stack direction={'row'} spacing={4} style={{ opacity: .75 }} alignItems={"center"} width={'100%'}>
-        <span style={{ flexGrow: 1 }} />
-        <FormControlLabel
-          label={<Stack><span>Use this window in-game.</span><small>Disable for second-screen use.</small></Stack>}
-          control={<Checkbox checked={showInGame} onChange={handleShowInGame} size="small" />}
-        />
-        <FormControlLabel
-          label={<Stack><span>Open this window with DBD</span><small>Disable to only open manually.</small></Stack>}
-          control={<Checkbox checked={openOnStartup} onChange={handleOpenOnStartup} size="small" />}
-        />
-        <span style={{ flexGrow: 1 }} />
-      </Stack>
-    </Stack >
+    <AppHighlightTutorialWrapper>
+      <Stack width="100%" height="100%" alignItems="center" justifyContent="center" spacing={1}>
+        <Stack>
+          <Typography variant="h5">Welcome to Fog Companion for competitive Dead by Daylight</Typography>
+          <Link variant="caption" style={{ opacity: .8 }} onClick={() => useHighlightTutorial.getState().start(HomeViewTutorial)}><Help sx={{ fontSize: 12 }} /> Learn what this app can do for you</Link>
+        </Stack>
+        <Grid container flexGrow={1} spacing={1} width="100%">
+          <HLTElement {...HomeViewTutorial.ModeCards}>
+            {(key, setRef, highlighted) => <TimerCard buttonTutorial key={key} setRef={setRef} />}
+          </HLTElement>
+          <ScrimsCard />
+          <HLTElement {...HomeViewTutorial.CalloutCard}>
+            {(key, setRef, highlighted) => <CalloutCard key={key} setRef={setRef} />}
+          </HLTElement>
+          <HLTElement {...HomeViewTutorial.SmartFeaturesCard}>
+            {(key, setRef, highlighted) => <SmartFeaturesCard key={key} setRef={setRef} />}
+          </HLTElement>
+        </Grid>
+        <Stack direction={'row'} spacing={4} alignItems={"center"} width={'100%'}>
+          <span style={{ flexGrow: 1 }} />
+          <HLTElement {...HomeViewTutorial.SecondMonitorCheck}>
+            {(key, setRef, highlighted) => (<FormControlLabel
+              style={{ opacity: .75 }}
+              key={key}
+              ref={setRef}
+              label={<Stack><span>Use this window in-game.</span><small>Disable for second-screen use.</small></Stack>}
+              control={<Checkbox checked={showInGame} onChange={handleShowInGame} size="small" />}
+            />)}
+          </HLTElement>
+          <HLTElement {...HomeViewTutorial.OpenOnStartupCheck}>
+            {(key, setRef, highlighted) => (<FormControlLabel
+              style={{ opacity: .75 }}
+              key={key}
+              ref={setRef}
+              label={<Stack><span>Open this window with DBD</span><small>Disable to only open manually.</small></Stack>}
+              control={<Checkbox checked={openOnStartup} onChange={handleOpenOnStartup} size="small" />}
+            />)}
+          </HLTElement>
+          <span style={{ flexGrow: 1 }} />
+        </Stack>
+      </Stack >
+    </AppHighlightTutorialWrapper>
   );
 };

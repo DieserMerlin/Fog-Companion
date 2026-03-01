@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fog Companion",
     "author": "Merlin",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "minimum-overwolf-version": "0.282.0",
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
@@ -27,77 +27,104 @@
       "app_showhide": {
         "title": "Main Window: Show/Hide",
         "action-type": "toggle",
-        "default": "Alt+C"
+        "default": "Alt+C",
+        "passthrough": true
       },
       "mode_1v1": {
         "title": "Switch to 1v1 mode",
         "action-type": "custom",
-        "default": "Alt+Shift+1"
+        "default": "Alt+Shift+1",
+        "passthrough": true
       },
       "mode_scrim": {
         "title": "Switch to Scrim/Tournament mode",
         "action-type": "custom",
-        "default": "Alt+Shift+2"
+        "default": "Alt+Shift+2",
+        "passthrough": true
       },
       "mode_1v1_switch_surv": {
         "title": "Mode 1v1: Switch to Survivor",
         "action-type": "custom",
-        "default": "Alt+1"
+        "default": "Alt+1",
+        "passthrough": true
       },
       "mode_1v1_switch_kllr": {
         "title": "Mode 1v1: Switch to Killer",
         "action-type": "custom",
-        "default": "Alt+2"
+        "default": "Alt+2",
+        "passthrough": true
       },
       "mode_1v1_start_stop_timer": {
         "title": "Mode 1v1: Start/Stop current timer",
         "action-type": "custom",
-        "default": "Alt+T"
+        "default": "Alt+T",
+        "passthrough": true
       },
       "mode_1v1_reset_timer": {
         "title": "Mode 1v1: Reset current timer",
         "action-type": "custom",
-        "default": "Alt+R"
+        "default": "Alt+R",
+        "passthrough": true
       },
       "mode_1v1_reset_timers": {
         "title": "Mode 1v1: Reset both timers",
         "action-type": "custom",
-        "default": "Alt+Shift+R"
+        "default": "Alt+Shift+R",
+        "passthrough": true
+      },
+      "mode_1v1_next_game": {
+        "title": "Mode 1v1: New game in current challenge",
+        "action-type": "custom",
+        "default": "Alt+Shift+G",
+        "passthrough": true
+      },
+      "mode_1v1_save_challenge": {
+        "title": "Mode 1v1: Save current challenge / Create new challenge",
+        "action-type": "custom",
+        "default": "Alt+Shift+S",
+        "passthrough": true
       },
       "map_showhide": {
         "title": "Callout-Map: Show/Hide",
         "action-type": "custom",
-        "default": "Alt+Shift+M"
+        "default": "Alt+Shift+M",
+        "passthrough": true
       },
       "map_switch_variant": {
         "title": "Callout-Map: Switch Variant (between maps of same name)",
         "action-type": "custom",
-        "default": "Alt+V"
+        "default": "Alt+V",
+        "passthrough": true
       },
       "map_browser": {
         "title": "Callout-Map: Open Map-Browser",
         "action-type": "custom",
-        "default": "Alt+M"
+        "default": "Alt+M",
+        "passthrough": true
       },
       "map_browser_up": {
         "title": "Callout-Map Browser: Navigate Up",
         "action-type": "custom",
-        "default": "Alt+W"
+        "default": "Alt+W",
+        "passthrough": true
       },
       "map_browser_down": {
         "title": "Callout-Map Browser: Navigate Down",
         "action-type": "custom",
-        "default": "Alt+S"
+        "default": "Alt+S",
+        "passthrough": true
       },
       "map_browser_left": {
         "title": "Callout-Map Browser: Navigate Back",
         "action-type": "custom",
-        "default": "Alt+A"
+        "default": "Alt+A",
+        "passthrough": true
       },
       "map_browser_right": {
         "title": "Callout-Map Browser: Navigate Forward",
         "action-type": "custom",
-        "default": "Alt+D"
+        "default": "Alt+D",
+        "passthrough": true
       }
     },
     "force_browser": "user",
@@ -134,7 +161,6 @@
         "native_window": true,
         "use_os_windowing": false,
         "show_in_taskbar": true,
-        "disable_hardware_acceleration": true,
         "size": {
           "width": 1500,
           "height": 900
@@ -200,7 +226,8 @@
     "externally_connectable": {
       "matches": [
         "https://fogcompanion.com",
-        "https://*.fogcompanion.com"
+        "https://*.fogcompanion.com",
+        "https://*.dev.cratr.space"
       ]
     },
     "game_targeting": {
