@@ -315,4 +315,12 @@ export const DetectableKillers: KillerDetection[] = [
       powerLabel: ["CHARGE REGURGITATE", "HEAD FORM", "HEADLONG FLIGHT", "BODY FORM"]
     }
   },
+  {
+    name: Killer.FIRST,
+    detect: {
+      names: ["THE FIRST", "HENRY CREEL"],
+      powerLabel: ["TRAVERSE UPSIDE DOWN", "CHARGE VINE ATTACK", "RELEASE VINE ATTACK"],
+      confirmPowerLabel: ["UNDERGATE ATTACK"]
+    }
+  }
 ]

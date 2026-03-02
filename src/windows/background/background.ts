@@ -92,7 +92,7 @@ class BackgroundController {
     });
 
     // Initialize Mode1v1ChallangeManager
-    Mode1v1Manager.Instance();
+    Mode1v1Manager.Instance().enableSyncHost();
 
     // Initialize focused windows object.
     window.focusedWindows = [];

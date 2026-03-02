@@ -8,9 +8,15 @@ import { MODE_1V1_THEME } from "../../mode_1v1/mode_1v1-settings";
 
 export class Mode1v1Manager {
   private appDb = AppDB;
+  private syncHostEnabled = false;
+  private syncSettingsUnsubscribe: (() => void) | null = null;
 
   public static Instance(): Mode1v1Manager {
-    return overwolf.windows.getMainWindow().cache.mode1v1ChallengeManager || (overwolf.windows.getMainWindow().cache.mode1v1Manager = new Mode1v1Manager());
+    const mainWindow = overwolf.windows.getMainWindow() as Window & { cache: Record<string, unknown> };
+    if (!mainWindow.cache.mode1v1Manager) {
+      mainWindow.cache.mode1v1Manager = new Mode1v1Manager();
+    }
+    return mainWindow.cache.mode1v1Manager as Mode1v1Manager;
   }
 
   private constructor() {
@@ -20,9 +26,20 @@ export class Mode1v1Manager {
   async init() {
     if (!(await this.appDb.mode1v1Challenges.count()))
       await this.createChallenge();
+  }
+
+  enableSyncHost() {
+    if (this.syncHostEnabled) return;
+    this.syncHostEnabled = true;
+
+    this.syncSettingsUnsubscribe?.();
+    this.syncSettingsUnsubscribe = ACCOUNT_SETTINGS.hook.subscribe((s, p) => {
+      if (s.sync1v1Challenges !== p.sync1v1Challenges || s.sync1v1Interval !== p.sync1v1Interval) {
+        this.scheduleSync();
+      }
+    });
 
     this.scheduleSync();
-    ACCOUNT_SETTINGS.hook.subscribe((s, p) => (s.sync1v1Challenges !== p.sync1v1Challenges || s.sync1v1Interval !== p.sync1v1Interval) && this.scheduleSync());
   }
 
   async createChallenge() {
@@ -91,6 +108,7 @@ export class Mode1v1Manager {
   private syncTimeout: NodeJS.Timeout;
   private syncLock = false;
   async syncCycle() {
+    if (!this.syncHostEnabled) return;
     if (this.syncLock) return;
     this.syncLock = true;
 
@@ -146,6 +164,7 @@ export class Mode1v1Manager {
   }
 
   scheduleSync() {
+    if (!this.syncHostEnabled) return;
     if (this.syncTimeout) clearTimeout(this.syncTimeout);
     this.syncTimeout = setTimeout(() => this.syncCycle(), ACCOUNT_SETTINGS.getValue().sync1v1Interval);
   }

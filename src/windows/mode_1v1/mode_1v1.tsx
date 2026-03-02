@@ -2,7 +2,7 @@ import {
   OWHotkeys
 } from "@overwolf/overwolf-api-ts";
 
-import { Mode1v1TimerRef, RenderMode1v1Timer } from '@diesermerlin/fog-companion-web';
+import { Mode1v1DefaultTheme, Mode1v1TimerRef, RenderMode1v1Timer } from '@diesermerlin/fog-companion-web';
 import { createRoot } from 'react-dom/client';
 import { AppWindow } from "../../AppWindow";
 import { kHotkeys, kWindowNames } from "../../consts";
@@ -25,6 +25,7 @@ class Mode1v1 extends AppWindow {
 
     this.setHotkeyBehavior();
     MODE_1V1_THEME.hook.subscribe((curr, prev) => stringify(curr.theme) !== stringify(prev.theme) && this.resize());
+    overwolf.windows.getMainWindow().bus.on('game-info', () => this.ensureVisible());
     this.resize();
   }
 
@@ -55,7 +56,7 @@ class Mode1v1 extends AppWindow {
   }
 
   private async resize() {
-    const { theme } = MODE_1V1_THEME.getValue();
+    const theme = MODE_1V1_THEME.getValue().theme || Mode1v1DefaultTheme;
     const gi = overwolf.windows.getMainWindow().gameInfo;
 
     let width = 0, height = 0;
@@ -77,18 +78,36 @@ class Mode1v1 extends AppWindow {
       height = theme.data.size.height.size;
     }
 
-    if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
-      width = 0;
-      height = 0;
-    }
+    if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) return;
 
     const window = await new Promise<overwolf.windows.WindowResult>(res => overwolf.windows.getCurrentWindow(w => res(w)));
     const res = await new Promise<overwolf.Result>((res) => overwolf.windows.changeSize({ window_id: window.window.id, width, height, auto_dpi_resize: true }, _res => res(_res)));
 
     const first = !localStorage.getItem('1v1Resized');
-    if (first) {
+    if (first && gi) {
       localStorage.setItem('1v1Resized', '1');
       await new Promise<overwolf.Result>(res => overwolf.windows.changePosition(window.window.id, gi.width / 2 - width / 2, 10, _res => res(_res)));
+    }
+
+    await this.ensureVisible();
+  }
+
+  private async ensureVisible() {
+    const gi = overwolf.windows.getMainWindow().gameInfo;
+    if (!gi) return;
+
+    const current = await new Promise<overwolf.windows.WindowResult>(res => overwolf.windows.getCurrentWindow(w => res(w)));
+    const width = current.window.width || 0;
+    const height = current.window.height || 0;
+    if (!width || !height) return;
+
+    const maxX = Math.max(0, gi.width - width);
+    const maxY = Math.max(0, gi.height - height);
+    const clampedX = Math.max(0, Math.min(current.window.left ?? 0, maxX));
+    const clampedY = Math.max(0, Math.min(current.window.top ?? 0, maxY));
+
+    if (clampedX !== (current.window.left ?? 0) || clampedY !== (current.window.top ?? 0)) {
+      await new Promise<overwolf.Result>(res => overwolf.windows.changePosition(current.window.id, clampedX, clampedY, _res => res(_res)));
     }
   }
 

@@ -209,10 +209,10 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@diesermerlin/fog-companion-web@^0.1.26":
-  version "0.1.26"
-  resolved "https://npm.pkg.github.com/download/@diesermerlin/fog-companion-web/0.1.26/c9e7dea5f38168de0562469b1ef0cc9d3ee8de0b#c9e7dea5f38168de0562469b1ef0cc9d3ee8de0b"
-  integrity sha512-JdyEWosN+kHFoXt5/O7/ZmG4jP+WSX6whcH9aZSss8X6HFduN/F9gugmhisk5seIYsFBZiBt3KqOHugzMJnt/A==
+"@diesermerlin/fog-companion-web@0.1.30":
+  version "0.1.30"
+  resolved "https://npm.pkg.github.com/download/@diesermerlin/fog-companion-web/0.1.30/c98f921410e592a51a9adc02f9735d5bfbb1a525#c98f921410e592a51a9adc02f9735d5bfbb1a525"
+  integrity sha512-5xXpCKoXSd+eR8aqpetE6WOqou5+8EJITuiJpfSVTzg+6flaISWJyLOw78Y+e7bAc54mLa7Cb7glZpNT0O5y3w==
   dependencies:
     "@discordjs/rest" "^2.6.0"
     "@emotion/react" "^11.14.0"

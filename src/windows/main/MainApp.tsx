@@ -4,7 +4,7 @@ import { TabContext, TabList } from "@mui/lab";
 import { Box, CircularProgress, darken, GlobalStyles, IconButton, Link, Portal, Stack, Tab, Tooltip, Typography } from "@mui/material";
 import { useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from "motion/react";
-import { PropsWithChildren, useEffect, useRef, useState } from "react";
+import { memo, PropsWithChildren, useEffect, useRef, useState } from "react";
 import { useTRPC } from "../../utils/trpc/trpc";
 import { useConnectedClient, useSession } from "../../utils/trpc/use-session";
 import { BaseWindow } from "../../utils/window/AppWindow";
@@ -18,21 +18,16 @@ import { MainAppTab, useMainApp } from "./use-main-app";
 import { TutorialsOverlay, useTutorial } from "./welcome/tutorials/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
 
-const MotionBox = motion(Box);
-
-const AppTabPanel = (props: PropsWithChildren) => {
+const AppTabPanel = memo((props: PropsWithChildren) => {
   return (
-    <MotionBox
-      initial={{ filter: "blur(20px)", opacity: 0 }}
-      animate={{ filter: "blur(0px)", opacity: 1 }}
-      exit={{ filter: "blur(20px)", opacity: 0 }}
+    <Box
       style={{ width: "100%", height: "100%", position: "absolute" }}
       p={2}
     >
       {props.children}
-    </MotionBox>
+    </Box>
   );
-};
+});
 
 const HEADER_HEIGHT = 50;
 function AlwaysOnTopHeader() {
@@ -104,7 +99,7 @@ export const MainApp = () => {
   }, []);
 
   return (
-    <BaseWindow resizable>
+    <BaseWindow resizable onGoHome={() => useMainApp.setState({ tab: MainAppTab.WELCOME })}>
       <AppSnackBarHost />
       <AppConnectionHost />
       <Stack position={'fixed'} top={0} left={0} m={0} p={0} width={'100vw'} height={'100vh'} overflow={'hidden'}>
@@ -207,6 +202,7 @@ const LoginIndicator = () => {
 }
 
 const AdContainer = () => {
+  if (1) return null;
   const adRef = useRef<any>(null);
   const [showTips, setShowTips] = useState(false);
 

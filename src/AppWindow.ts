@@ -17,6 +17,8 @@ export abstract class AppWindow {
   protected mainWindow: OWWindow;
   protected maximized: boolean = false;
   private observer: MutationObserver | null = null;
+  private wireScheduled = false;
+  private observerStopTimer: ReturnType<typeof setTimeout> | null = null;
 
   // cache window id so we don't look it up repeatedly
   private _windowId?: string;
@@ -27,12 +29,15 @@ export abstract class AppWindow {
     // Wire anything already in the DOM
     this.tryWireAll();
 
-    // Also watch for future mounts/re-renders
-    this.observer = new MutationObserver(() => this.tryWireAll());
+    // Watch startup mounts/re-renders, but avoid permanent mutation overhead.
+    this.observer = new MutationObserver(() => this.scheduleWire());
     this.observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
     });
+
+    // Most window chrome mounts during startup; stop observing afterwards.
+    this.observerStopTimer = setTimeout(() => this.disconnectObserver(), 5000);
 
     // Warm the window id cache in the background (no harm if it fails; we'll re-fetch on demand)
     this.getWindowId().catch(() => { });
@@ -81,6 +86,25 @@ export abstract class AppWindow {
     if (resizeRoot && !resizeRoot.dataset.resizeWired) {
       this.wireResizeHandles(resizeRoot);
       resizeRoot.dataset.resizeWired = "1";
+    }
+  }
+
+  private scheduleWire() {
+    if (this.wireScheduled) return;
+    this.wireScheduled = true;
+
+    requestAnimationFrame(() => {
+      this.wireScheduled = false;
+      this.tryWireAll();
+    });
+  }
+
+  private disconnectObserver() {
+    this.observer?.disconnect();
+    this.observer = null;
+    if (this.observerStopTimer) {
+      clearTimeout(this.observerStopTimer);
+      this.observerStopTimer = null;
     }
   }
 
@@ -160,8 +184,7 @@ export abstract class AppWindow {
 
   /** Optionally call if you tear down this UI/controller. */
   public disconnect() {
-    this.observer?.disconnect();
-    this.observer = null;
+    this.disconnectObserver();
   }
 
   public async getWindowState() {

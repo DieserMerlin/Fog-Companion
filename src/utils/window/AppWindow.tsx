@@ -99,6 +99,10 @@ export interface ErrorBoundaryProps {
   resetKeys?: Array<unknown>;
   /** Optional label for the retry button in the default fallback. */
   retryLabel?: string;
+  /** Optional callback for returning to a safe home view. */
+  onGoHome?: () => void;
+  /** Optional label for the home button in the default fallback. */
+  homeLabel?: string;
   children: React.ReactNode;
 }
 
@@ -129,6 +133,7 @@ export class ErrorBoundary extends React.Component<
 > {
   static defaultProps = {
     retryLabel: "Try again",
+    homeLabel: "Go to Home",
   };
 
   constructor(props: ErrorBoundaryProps) {
@@ -189,7 +194,7 @@ export class ErrorBoundary extends React.Component<
   };
 
   private renderFallback() {
-    const { fallback, retryLabel } = this.props;
+    const { fallback, retryLabel, homeLabel, onGoHome } = this.props;
     const { error, info } = this.state;
 
     if (typeof fallback === "function") {
@@ -226,20 +231,36 @@ export class ErrorBoundary extends React.Component<
             </div>
           </details>
         ) : null}
-        <button
-          type="button"
-          onClick={this.handleRetry}
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.5rem 0.75rem",
-            borderRadius: 8,
-            border: "1px solid rgba(0,0,0,0.15)",
-            background: "#f6f6f6",
-            cursor: "pointer",
-          }}
-        >
-          {retryLabel}
-        </button>
+        <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            style={{
+              padding: "0.5rem 0.75rem",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "#f6f6f6",
+              cursor: "pointer",
+            }}
+          >
+            {retryLabel}
+          </button>
+          {onGoHome && (
+            <button
+              type="button"
+              onClick={onGoHome}
+              style={{
+                padding: "0.5rem 0.75rem",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                background: "#f0f7ff",
+                cursor: "pointer",
+              }}
+            >
+              {homeLabel}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -254,9 +275,9 @@ export class ErrorBoundary extends React.Component<
   }
 }
 
-export const BaseWindow = (props: PropsWithChildren<{ transparent?: boolean, fullWindowDrag?: boolean, resizable?: boolean }>) => {
+export const BaseWindow = (props: PropsWithChildren<{ transparent?: boolean, fullWindowDrag?: boolean, resizable?: boolean, onGoHome?: () => void }>) => {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onGoHome={props.onGoHome}>
       {props.resizable && <>
         <GlobalStyles styles={resizeCss} />
         <div id="resize">
