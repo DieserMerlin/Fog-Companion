@@ -43,13 +43,14 @@ const CalloutView = (props: { mock: boolean, browser: boolean, direction: 'left'
   const manualMap = useManualMap(s => s.map);
 
   let map = (_map || manualMap || (props.mock && mockMap));
+  const mapIdentity = map ? `${map.realm}::${map.mapFile}` : null;
   const availableVariants = [map, ...(map.variants || [])];
 
   const mapVariant = availableVariants[variant % availableVariants.length] || map;
 
   const { map_browser, map_showhide, map_switch_variant } = useHotkeys();
 
-  useEffect(() => useCalloutVariant.setState({ variant: 0 }), [map]);
+  useEffect(() => useCalloutVariant.setState({ variant: 0 }), [mapIdentity]);
 
   return (
     <Stack width={'100%'} height={'100%'} spacing={.5}>

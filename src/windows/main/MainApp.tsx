@@ -202,7 +202,6 @@ const LoginIndicator = () => {
 }
 
 const AdContainer = () => {
-  if (1) return null;
   const adRef = useRef<any>(null);
   const [showTips, setShowTips] = useState(false);
 
