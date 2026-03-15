@@ -2,7 +2,7 @@ import { Close, Delete } from '@mui/icons-material';
 import Chip from '@mui/material/Chip';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { kDbdGameId, kHotkeys } from '../../../consts';
+import { kDbdGameId, kHotkeyLabels, kHotkeys } from '../../../consts';
 import { useHotkeys } from '../../../utils/hooks/hotkey-hook';
 import { useMainApp } from '../use-main-app';
 import { useTutorial } from '../welcome/tutorials/AppTutorial';
@@ -107,6 +107,32 @@ function keyEventToDescriptor(e: KeyboardEvent): Descriptor {
   return { mainKey, mods, vk, label };
 }
 
+// Overwolf modifier bitmask: Shift=1, Ctrl=2, Alt=4
+function modsToMask(mods: Mods) {
+  return (mods.shift ? 1 : 0) | (mods.ctrl ? 2 : 0) | (mods.alt ? 4 : 0);
+}
+
+function resolveAssignError(vk: number, mods: Mods, currentName: string, callback: (msg: string) => void) {
+  overwolf.settings.hotkeys.get((res) => {
+    const entries: overwolf.settings.hotkeys.IHotkey[] = [
+      ...(res?.globals ?? []),
+      ...Object.values(res?.games ?? {}).flat(),
+    ];
+    const mask = modsToMask(mods);
+    const conflict = entries.find(hk =>
+      hk.name !== currentName &&
+      hk.virtualKeycode === vk &&
+      hk.modifierKeys === mask
+    );
+    if (conflict) {
+      const label = kHotkeyLabels[conflict.name as keyof typeof kHotkeyLabels] ?? conflict.name;
+      callback(`Already bound to "${label}"`);
+    } else {
+      callback('Key is taken by another app');
+    }
+  });
+}
+
 type Props<T extends HotkeyName> = { name: T, small?: boolean, noDelete?: boolean, startIcon?: ReactElement };
 
 export function SettingsHotkey<T extends HotkeyName>({ name, small, noDelete, startIcon }: Props<T>) {
@@ -174,7 +200,7 @@ export function SettingsHotkey<T extends HotkeyName>({ name, small, noDelete, st
       (res: { success: boolean; error?: string | null }) => {
         stopReassign();
         if (!res?.success) {
-          showError(res?.error || 'Assignment failed');
+          resolveAssignError(vk, mods, name as string, showError);
         }
       }
     );

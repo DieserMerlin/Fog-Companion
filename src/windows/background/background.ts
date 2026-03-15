@@ -140,6 +140,47 @@ class BackgroundController {
       },
     });
     this._gameListener.start();
+
+    // Re-show the main window when the user launches the app from Overwolf
+    // while the background is already running (e.g. after hiding via hotkey).
+    overwolf.extensions.onAppLaunchTriggered.addListener(() => this.toggleMainWindow(true));
+
+    this.watchForUserClose();
+  }
+
+  /**
+   * Detect when the user closes the main window via the OS (e.g. taskbar right-click → Close).
+   * In that case overwolf closes the foreground window but leaves the background alive,
+   * so we listen for it here and shut everything down.
+   *
+   * We distinguish a user-close from a programmatic desktop↔in-game switch by waiting a
+   * short moment: if the switch happened, the other main window will already be restored
+   * by then; if the user closed the app, neither window will be open.
+   */
+  private watchForUserClose() {
+    const mainWindowNames = new Set<string>([kWindowNames.mainDesktop, kWindowNames.mainInGame]);
+
+    const isOpen = (name: string) => new Promise<boolean>(resolve =>
+      overwolf.windows.obtainDeclaredWindow(name, res =>
+        resolve(res?.window?.stateEx === 'normal' || res?.window?.stateEx === 'maximized')
+      )
+    );
+
+    overwolf.windows.onStateChanged.addListener(async (e) => {
+      if (!mainWindowNames.has(e.window_name)) return;
+      if (e.window_state_ex !== 'closed') return;
+
+      await new Promise(r => setTimeout(r, 200));
+
+      const [desktopOpen, inGameOpen] = await Promise.all([
+        isOpen(kWindowNames.mainDesktop),
+        isOpen(kWindowNames.mainInGame),
+      ]);
+
+      if (!desktopOpen && !inGameOpen) {
+        overwolf.windows.getMainWindow().close();
+      }
+    });
   }
 
   /** Singleton accessor. */

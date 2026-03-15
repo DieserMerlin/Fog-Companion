@@ -30,3 +30,23 @@ export const kHotkeys = {
 } as const;
 
 export const kDbdGameId = 10868;
+
+export const kHotkeyLabels: Record<typeof kHotkeys[keyof typeof kHotkeys], string> = {
+  app_showhide:              'Show/Hide App',
+  map_showhide:              'Show/Hide Map',
+  mode_1v1:                  '1v1 Mode',
+  mode_scrim:                'Scrim Mode',
+  mode_1v1_switch_surv:      'Switch to Survivor',
+  mode_1v1_switch_kllr:      'Switch to Killer',
+  mode_1v1_start_stop_timer: 'Start/Stop Timer',
+  mode_1v1_reset_timer:      'Reset Timer',
+  mode_1v1_reset_timers:     'Reset Both Timers',
+  mode_1v1_save_challenge:   'Save Challenge',
+  mode_1v1_next_game:        'Next Game',
+  map_switch_variant:        'Switch Map Variant',
+  map_browser:               'Map Browser',
+  map_browser_up:            'Navigate Up',
+  map_browser_down:          'Navigate Down',
+  map_browser_left:          'Navigate Back',
+  map_browser_right:         'Navigate Forward',
+};

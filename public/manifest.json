@@ -9,7 +9,7 @@
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
     "icon": "icons/Icon.png",
-    "icon_gray": "icons/Icon.png",
+    "icon_gray": "icons/IconGray.png",
     "launcher_icon": "icons/Icon.ico",
     "window_icon": "icons/Icon.png"
   },
@@ -144,11 +144,11 @@
         "restrict_to_game_bounds": true,
         "keep_window_location": true,
         "size": {
-          "width": 1400,
-          "height": 800
+          "width": 1600,
+          "height": 900
         },
         "min_size": {
-          "width": 1400,
+          "width": 1560,
           "height": 800
         },
         "resizable": true
@@ -163,11 +163,11 @@
         "show_in_taskbar": true,
         "disable_hardware_acceleration": true,
         "size": {
-          "width": 1500,
+          "width": 1600,
           "height": 900
         },
         "min_size": {
-          "width": 1400,
+          "width": 1560,
           "height": 800
         },
         "resizable": true

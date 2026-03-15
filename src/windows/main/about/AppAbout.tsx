@@ -34,7 +34,7 @@ export const AppAbout = () => {
           <pre style={{ whiteSpace: 'pre-wrap', height: '100%', overflow: 'auto' }}>{noticeText}</pre>
         </Stack>
       </Dialog>
-      <Stack width={'100%'} height={'100%'} alignItems={"center"} justifyContent={"center"} p={4}>
+      <Stack width={'100%'} height={'100%'} alignItems={"center"} justifyContent={"center"} p={4} px={0}>
         <Stack spacing={1} width={'100%'}>
           <Paper variant="elevation">
             <Stack direction={'row'} alignItems={'center'} width={'100%'} spacing={2} p={2}>

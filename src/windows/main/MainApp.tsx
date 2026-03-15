@@ -202,24 +202,29 @@ const LoginIndicator = () => {
 }
 
 const AdContainer = () => {
-  const adRef = useRef<any>(null);
+  const adRef1 = useRef<any>(null);
+  const adRef2 = useRef<any>(null);
   const [showTips, setShowTips] = useState(false);
 
   const onLoad = () => {
     const OwAd = (window as any).OwAd;
     if (!OwAd) return;
 
-    const el = document.getElementById('ad-160x600');
-    adRef.current = new OwAd(el, { size: { width: 160, height: 600 } });
+    const el1 = document.getElementById('ad-400x600');
+    adRef1.current = new OwAd(el1, { size: { width: 400, height: 600 } });
 
-    adRef.current.addEventListener('display_ad_loaded', () => { setShowTips(false); });
-    adRef.current.addEventListener('error', () => { setShowTips(true); });
+    const el2 = document.getElementById('ad-400x60');
+    adRef2.current = new OwAd(el2, { size: { width: 400, height: 60 } });
+
+    adRef1.current.addEventListener('display_ad_loaded', () => { setShowTips(false); });
+    adRef1.current.addEventListener('error', () => { setShowTips(true); });
   }
 
   useEffect(() => {
     onLoad();
     return () => {
-      adRef.current?.shutdown();
+      adRef1.current?.shutdown();
+      adRef2.current?.shutdown();
     }
   }, []);
 
@@ -227,7 +232,7 @@ const AdContainer = () => {
   const tip = Tips[tipNum];
 
   return (
-    <div style={{ position: 'relative', padding: 0, margin: 0, width: 160, height: 600 }}>
+    <div style={{ position: 'relative', padding: 0, margin: 0, width: 400, height: 670, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10}}>
       {showTips && (
         <Stack zIndex={9999} position={'absolute'} width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'} textAlign={'center'} spacing={1}>
           <div style={{ width: '100%', aspectRatio: '1/1', backgroundImage: `url(/img/Logo.png)`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
@@ -236,7 +241,8 @@ const AdContainer = () => {
           <small><Link onClick={() => setTipNum((tipNum + 1) % Tips.length)} style={{ opacity: .9 }}>Next tip</Link></small>
         </Stack>
       )}
-      <div id={"ad-160x600"} style={{ width: 160, height: 600 }} />
+      <div id={"ad-400x60"} style={{ width: 400, height: 60 }} />
+      <div id={"ad-400x600"} style={{ width: 400, height: 600 }} />
     </div>
   );
 };
