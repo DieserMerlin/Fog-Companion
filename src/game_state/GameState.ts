@@ -116,6 +116,16 @@ export class GameStateGuesser {
   private pendingTransition: PendingTransition | null = null;
   private readonly transitionWindowMs = 2500;
 
+  private transitionCauseGroup(cause?: DetectionCause) {
+    if (!cause) return null;
+    if (
+      cause === DetectionCause.MAIN_MENU_TEXT
+      || cause === DetectionCause.MENU_BUTTON_TEXT
+      || cause === DetectionCause.BLOODPOINTS_TEXT
+    ) return 'menu';
+    return null;
+  }
+
   private requiredTransitionHits(from: GameStateType, to: GameStateType, cause?: DetectionCause) {
     if (from === to) return 1;
 
@@ -143,11 +153,18 @@ export class GameStateGuesser {
     const now = Date.now();
     const requiredHits = this.requiredTransitionHits(prev.type, next.type, next.detectedBy);
     const pending = this.pendingTransition;
+    const sameCauseOrGroup = !!pending && (
+      pending.detectedBy === next.detectedBy
+      || (
+        this.transitionCauseGroup(pending.detectedBy) !== null
+        && this.transitionCauseGroup(pending.detectedBy) === this.transitionCauseGroup(next.detectedBy)
+      )
+    );
 
     const sameTransition = !!pending
       && pending.from === prev.type
       && pending.to === next.type
-      && pending.detectedBy === next.detectedBy
+      && sameCauseOrGroup
       && (now - pending.lastSeen) <= this.transitionWindowMs;
 
     if (sameTransition) {
@@ -196,6 +213,13 @@ export class GameStateGuesser {
 
     const prev = this._state;
     if (isEqual(prev, next)) return;
+
+    // Any positive non-match signal should refresh fallback timer even if
+    // transition denoise delays/blocks the state switch.
+    if (next.type !== GameStateType.MATCH) {
+      this.lastUpdate = Date.now();
+    }
+
     if (next.type === GameStateType.MENU || next.type === GameStateType.CLOSED) {
       delete next.map;
     } else if (next.type !== GameStateType.MATCH) {
@@ -297,7 +321,17 @@ export class GameStateGuesser {
         return (menuBtnHits >= requiredHits) && DetectionCause.MENU_BUTTON_TEXT;
       }
       else if (type === 'bloodpoints')
-        return (tokens.filter(text => text.match(/\d{3,}/g)).length >= 3) && DetectionCause.BLOODPOINTS_TEXT;
+        return (() => {
+          const cleaned = res.text
+            .join(' ')
+            .replace(/[^0-9+\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const groups = cleaned.match(/\d+/g) || [];
+          const hasLargeCounter = groups.some(g => g.length >= 3);
+          const totalDigits = groups.reduce((sum, g) => sum + g.length, 0);
+          return (groups.length >= 3 && hasLargeCounter && totalDigits >= 5) && DetectionCause.BLOODPOINTS_TEXT;
+        })();
     }
     const result = getResult();
     if (result) this.push({ type: GameStateType.MENU, detectedBy: result });

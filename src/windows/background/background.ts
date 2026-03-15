@@ -316,7 +316,14 @@ class BackgroundController {
           { id: 'map', type: 'ocr' as const, rect: { x: 0, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 240, canvas: window.cache.canvas?.['map'] || undefined },
           { id: 'main-menu', type: 'ocr' as const, rect: { x: 0, y: 0.0, w: 0.25, h: 0.6 }, psm: PSM.SINGLE_COLUMN, threshold: 120, canvas: window.cache.canvas?.['main-menu'] || undefined },
           { id: 'menu-btn', type: 'ocr' as const, rect: { x: 0.4, y: 0.7, w: 0.6, h: 0.3 }, psm: PSM.SPARSE_TEXT, threshold: 120, canvas: window.cache.canvas?.['menu-btn'] || undefined },
-          { id: 'bloodpoints', type: 'ocr' as const, rect: { x: 0.65, y: 0, w: 0.35, h: 0.15 }, psm: PSM.SINGLE_LINE, canvas: window.cache.canvas?.['bloodpoints'] || undefined },
+          {
+            id: 'bloodpoints',
+            type: 'ocr' as const,
+            rect: { x: 0.65, y: 0, w: 0.30, h: 0.12 },
+            psm: PSM.SPARSE_TEXT,
+            whitelist: '0123456789+ ',
+            canvas: window.cache.canvas?.['bloodpoints'] || undefined
+          },
           {
             id: 'loading-screen',
             type: 'pure-black' as const,
