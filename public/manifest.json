@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fog Companion",
     "author": "Merlin",
-    "version": "1.1.01",
+    "version": "1.1.2",
     "minimum-overwolf-version": "0.282.0",
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
@@ -148,8 +148,8 @@
           "height": 800
         },
         "min_size": {
-          "width": 1200,
-          "height": 700
+          "width": 1400,
+          "height": 800
         },
         "resizable": true
       },
