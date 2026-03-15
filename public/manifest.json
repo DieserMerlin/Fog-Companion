@@ -8,10 +8,10 @@
     "minimum-overwolf-version": "0.282.0",
     "description": "Companion app for the DBD competitive scene.",
     "dock_button_title": "Fog Companion",
-    "icon": "icons/IconMouseNormal.png",
-    "icon_gray": "icons/IconMouseNormal.png",
-    "launcher_icon": "icons/desktop-icon.ico",
-    "window_icon": "icons/IconMouseNormal.png"
+    "icon": "icons/Icon.png",
+    "icon_gray": "icons/Icon.png",
+    "launcher_icon": "icons/Icon.ico",
+    "window_icon": "icons/Icon.png"
   },
   "permissions": [
     "Hotkeys",
