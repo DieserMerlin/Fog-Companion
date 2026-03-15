@@ -154,7 +154,10 @@ const Mode1v1App = () => {
   const challenge = useCurrent1v1Challenge();
 
   const game = challenge?.played[challenge.played.length - 1];
-  useEffect(() => { !game && Mode1v1Manager.Instance().addGame(challenge) }, [game]);
+  useEffect(() => {
+    if (!challenge || game) return;
+    Mode1v1Manager.Instance().addGame(challenge);
+  }, [challenge?.challengeId, game?.gameId]);
 
   const survTime = game?.survTime ?? 0;
   const kllrTime = game?.kllrTime ?? 0;

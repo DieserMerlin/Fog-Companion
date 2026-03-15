@@ -90,7 +90,7 @@ export class Mode1v1Manager {
   }
 
   async currentChallenge() {
-    return await this.appDb.mode1v1Challenges.orderBy('startedAt').reverse().first();
+    return await this.appDb.mode1v1Challenges.orderBy('continuedAt').reverse().first();
   }
 
   isCommittable(challenge: Mode1v1TimerChallenge) {
