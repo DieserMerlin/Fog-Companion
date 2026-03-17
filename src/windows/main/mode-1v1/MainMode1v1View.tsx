@@ -100,12 +100,12 @@ const CurrentChallenge = (props: { setRef: (ref: HTMLDivElement) => void }) => {
   const isRunning = useMode1v1State(s => !!s.state?.running);
 
   const isCommittable = !!current && !isRunning && manager.isCommittable(current);
-  const currentGameFinished = !isRunning && (!currentGame || !!currentGame.kllrTime || !!currentGame.survTime);
+  const currentGameFinished = !isRunning && (!currentGame || (!!currentGame.kllrTime && !!currentGame.survTime));
   const newGameAddable = !!currentGameFinished && ((current?.played?.length || 0) < 30);
 
   useEffect(() => {
     if (current && (currentGameFinished || !currentGame)) Mode1v1Manager.Instance().addGame(current);
-  }, [current?.challengeId]);
+  }, [current?.challengeId, currentGame?.gameId]);
 
   return (
     <MotionPaper layout layoutId={current?.challengeId || 'current-challenge'} key={current?.challengeId || 'current-challenge'} sx={{ p: 1 }} variant="outlined" ref={props.setRef}>

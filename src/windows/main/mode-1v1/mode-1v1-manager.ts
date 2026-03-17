@@ -125,32 +125,28 @@ export class Mode1v1Manager {
           });
         });
 
-        // Fix old challenges
+        // Fix old challenges missing required fields
         for (const challenge of update) {
-          let updated = false;
-          if (!challenge.syncedAt) { challenge.syncedAt = 1; updated = true; }
+          let needsUpdate = false;
           challenge.played.forEach(p => {
-            if (!p.playedAt) { p.playedAt = Date.now(); updated = true; }
-            if (!p.gameId) { p.gameId = self.crypto.randomUUID(); updated = true; }
+            if (!p.playedAt) { p.playedAt = Date.now(); needsUpdate = true; }
+            if (!p.gameId) { p.gameId = self.crypto.randomUUID(); needsUpdate = true; }
           })
-          if (updated)
+          if (needsUpdate)
             await this.updateChallenge(challenge);
         }
 
         for (const challenge of update) {
           try {
+            await AppDB.mode1v1Challenges.update(challenge.challengeId, { syncError: false });
             MODE_1V1_SYNC.update({ syncing: challenge.challengeId });
-            await new Promise<void>(res => setTimeout(res, 1000));
+            await new Promise<void>(res => setTimeout(res, 200));
 
             const updated = await trpcClient().mode1v1.challenges.sync.mutate(challenge);
 
-            await AppDB.transaction('rw', [AppDB.mode1v1Challenges], async () => {
-              AppDB.mode1v1Challenges.update(challenge.challengeId, { syncError: !updated, ...(updated ? { syncedAt: new Date(updated.syncedAt).getTime() } : {}) });
-            })
+            await AppDB.mode1v1Challenges.update(challenge.challengeId, { syncError: false, ...(updated ? { syncedAt: new Date(updated.syncedAt).getTime() } : {}) });
           } catch (e) {
-            await AppDB.transaction('rw', [AppDB.mode1v1Challenges], async () => {
-              AppDB.mode1v1Challenges.update(challenge.challengeId, { syncError: true });
-            })
+            await AppDB.mode1v1Challenges.update(challenge.challengeId, { syncError: true });
           } finally {
             MODE_1V1_SYNC.update({ syncing: null });
           }

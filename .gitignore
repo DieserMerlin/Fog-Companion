@@ -31,3 +31,6 @@ src/generated-map-directory.ts
 
 # Config
 src/AppConfig.ts
+
+# Web project
+Fog-Companion-Web
