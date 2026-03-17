@@ -34,3 +34,7 @@ src/AppConfig.ts
 
 # Web project
 Fog-Companion-Web
+
+# AI/editor context files
+.claude
+OPENCODE_CONTEXT.md
