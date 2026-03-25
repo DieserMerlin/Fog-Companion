@@ -276,7 +276,12 @@ class BackgroundController {
     await otherWindow?.close();
     this._windows[otherWindowType] = null;
 
-    await usedWindow.restore();
+    // Only restore if the window isn't already visible — restore() un-maximizes,
+    // so calling it on a maximized window would drop it back to normal size.
+    const st = await usedWindow.getWindowState();
+    if (st?.window_state !== 'normal' && st?.window_state !== 'maximized') {
+      await usedWindow.restore();
+    }
   }
 
   async fixMainWindow(running?: boolean) {
@@ -286,7 +291,7 @@ class BackgroundController {
       return;
     }
 
-    if (running && !this._windows.main_in_game) {
+    if (running && INGAME_SETTINGS.getValue().showInGame && !this._windows.main_in_game) {
       const state = await this._windows.main_desktop?.getWindowState();
       const wasVisible = state?.window_state === 'normal' || state?.window_state === 'maximized';
       this.toggleMainWindow(wasVisible);

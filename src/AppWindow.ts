@@ -78,6 +78,12 @@ export abstract class AppWindow {
     const header = document.getElementById("header");
     if (header && !header.dataset.dragWired) {
       this.setDrag(header);
+      // Prevent double-click on the drag region from triggering the native
+      // OS maximize/restore (which bypasses our `maximized` state tracking).
+      header.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      });
       header.dataset.dragWired = "1";
     }
 
