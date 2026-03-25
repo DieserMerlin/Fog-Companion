@@ -38,3 +38,6 @@ Fog-Companion-Web
 # AI/editor context files
 .claude
 OPENCODE_CONTEXT.md
+
+# Map source files
+public/img/maps/src

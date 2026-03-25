@@ -9,6 +9,7 @@ const resolve = async () => {
   const dir: { [realm: string]: string[] } = {};
 
   for (const realm of realms) {
+    if (realm === 'src') continue;
     if (!(await stat(join(folder, realm))).isDirectory()) continue;
 
     const list = (dir[realm] || (dir[realm] = []));

@@ -118,6 +118,10 @@ class Mode1v1 extends AppWindow {
     OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimer, () => this.timerApi?.resetTimer());
     OWHotkeys.onHotkeyDown(kHotkeys.mode1v1resetTimers, () => this.timerApi?.resetTimers());
     OWHotkeys.onHotkeyDown(kHotkeys.mode1v1startStopTimer, () => this.timerApi?.startStop());
+    OWHotkeys.onHotkeyDown(kHotkeys.mode1v1SaveChallenge, async () => {
+      const challenge = await Mode1v1Manager.Instance().currentChallenge();
+      if (challenge) await Mode1v1Manager.Instance().addGame(challenge);
+    });
 
     overwolf.games.inputTracking.onKeyDown.addListener(e => {
       if (e.key === '50') this.timerApi?.handleEmote();

@@ -163,7 +163,7 @@ const CurrentChallenge = (props: { setRef: (ref: HTMLDivElement) => void }) => {
                     </Stack>
                   </Button>
 
-                  <SettingsHotkey name="mode_1v1_next_game" small />
+                  <SettingsHotkey name="mode_1v1_save_challenge" small />
                 </Fragment>
               )}
             </HLTElement>
@@ -187,7 +187,6 @@ const CurrentChallenge = (props: { setRef: (ref: HTMLDivElement) => void }) => {
                     </Stack>
                   </Button>
 
-                  <SettingsHotkey name="mode_1v1_save_challenge" small />
                 </Fragment>
               )}
             </HLTElement>
