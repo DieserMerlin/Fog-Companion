@@ -1,12 +1,12 @@
 import { execFile } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
-import { readFile, unlink, writeFile } from 'fs/promises';
+import { readFile, rm, unlink, writeFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import semver from 'semver';
 import { promisify } from 'util';
 import { Plugin } from 'vite';
 import { zip } from 'zip-a-folder';
-import checker from 'license-checker-rseidelsohn';
+import * as checker from 'license-checker-rseidelsohn';
 
 const pExecFile = promisify(execFile);
 
@@ -150,6 +150,13 @@ export default function overwolfVitePlugin(options: Options = {}): Plugin {
         const opkPath = join(releasesDir, `${name}-${version}${suffix}.opk`);
 
         await deleteFileIfExists(opkPath);
+
+        // Exclude maps source assets (gitignored, not needed in the extension)
+        const mapsSourceDir = join(distDir, 'img/maps/src');
+        if (existsSync(mapsSourceDir)) {
+            await rm(mapsSourceDir, { recursive: true, force: true });
+        }
+
         await zip(distDir, opkPath);
 
         console.log(`[${pluginName}] OPK created at ${opkPath}`);
