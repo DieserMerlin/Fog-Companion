@@ -42,6 +42,10 @@ class Debug extends AppWindow {
 
   public beforeClose(): void | Promise<void> {
   }
+
+  // Debug window is desktop-only; it must not block OCR via the focusedWindows gate.
+  override onFocus() {}
+  override onUnfocus() {}
 }
 
 Debug.instance();
