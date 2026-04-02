@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR Recording Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+
+  #topbar h1 { font-size: 15px; font-weight: 600; color: #fff; flex-shrink: 0; }
+
+  #upload-btn {
+    cursor: pointer;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  #upload-btn:hover { background: #1d4ed8; }
+  #file-input { display: none; }
+
+  #cycle-info {
+    font-size: 13px;
+    color: #888;
+    flex-shrink: 0;
+  }
+
+  /* ── Scrubber ── */
+  #scrubber-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: #151515;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+
+  #scrubber {
+    flex: 1;
+    accent-color: #2563eb;
+    cursor: pointer;
+    height: 4px;
+  }
+
+  .nav-btn {
+    background: #222;
+    border: 1px solid #333;
+    color: #ccc;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .nav-btn:hover:not(:disabled) { background: #2d2d2d; color: #fff; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  #ts-label {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    min-width: 180px;
+    text-align: right;
+  }
+
+  /* ── Main content ── */
+  #content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+    min-height: 0;
+  }
+
+  /* ── Screenshot pane ── */
+  #screenshot-pane {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  #screenshot-img-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #screenshot-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  #no-screenshot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    color: #444;
+    font-size: 13px;
+  }
+
+  /* ── Right panel ── */
+  #right-panel {
+    width: 380px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid #222;
+    overflow: hidden;
+  }
+
+  /* ── Game state card ── */
+  #gamestate-card {
+    padding: 14px 16px;
+    background: #111;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+  }
+
+  #gamestate-card h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #555;
+    margin-bottom: 8px;
+  }
+
+  .gs-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 2px 0;
+  }
+  .gs-label { color: #666; }
+  .gs-value { color: #e0e0e0; font-weight: 500; max-width: 220px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-MATCH    { background: #14532d; color: #4ade80; }
+  .badge-MENU     { background: #1e3a5f; color: #60a5fa; }
+  .badge-LOADING  { background: #3f2a00; color: #fbbf24; }
+  .badge-CLOSED   { background: #2a2a2a; color: #888; }
+  .badge-UNKNOWN  { background: #2a2a2a; color: #888; }
+
+  /* ── OCR results ── */
+  #ocr-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    background: #0f0f0f;
+  }
+
+  #ocr-pane h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #555;
+    margin-bottom: 10px;
+  }
+
+  .ocr-entry {
+    margin-bottom: 10px;
+    border: 1px solid #1e1e1e;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .ocr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ocr-header:hover { background: #222; }
+  .ocr-id { font-weight: 600; color: #93c5fd; }
+  .ocr-meta { color: #555; font-size: 11px; }
+
+  .ocr-body {
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: 'Consolas', monospace;
+    color: #aaa;
+    background: #0d0d0d;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .ocr-passed { color: #4ade80; }
+  .ocr-failed { color: #f87171; }
+
+  /* ── Canvas strip at bottom of screenshot ── */
+  #canvas-strip {
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #111;
+    overflow-x: auto;
+    flex-shrink: 0;
+    border-top: 1px solid #1e1e1e;
+    max-height: 110px;
+  }
+
+  .canvas-thumb {
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .canvas-thumb:hover, .canvas-thumb.active { border-color: #2563eb; }
+
+  .canvas-thumb img {
+    height: 80px;
+    width: auto;
+    display: block;
+  }
+
+  .canvas-thumb span {
+    display: block;
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+    padding: 1px 0;
+    background: #0d0d0d;
+  }
+
+  /* ── Drop overlay ── */
+  #drop-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(37,99,235,0.15);
+    border: 3px dashed #2563eb;
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #60a5fa;
+    pointer-events: none;
+  }
+  #drop-overlay.visible { display: flex; }
+
+  /* ── Empty state ── */
+  #empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: #444;
+  }
+  #empty-state svg { opacity: .3; }
+  #empty-state p { font-size: 14px; }
+  #empty-state small { font-size: 12px; color: #333; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 32px; height: 32px; border: 3px solid #333; border-top-color: #2563eb; border-radius: 50%; animation: spin .7s linear infinite; }
+
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="drop-overlay">Drop ZIP to load</div>
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#e0e0e0;font-size:15px;"><div class="spinner"></div>Loading recording…</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <h1>OCR Recording Viewer</h1>
+  <button id="upload-btn" onclick="document.getElementById('file-input').click()">Open ZIP</button>
+  <input type="file" id="file-input" accept=".zip">
+  <span id="cycle-info"></span>
+</div>
+
+<!-- Scrubber -->
+<div id="scrubber-wrap" style="display:none" id="scrubber-wrap">
+  <button class="nav-btn" id="btn-prev">&#8592; Prev</button>
+  <input type="range" id="scrubber" min="0" value="0">
+  <button class="nav-btn" id="btn-next">Next &#8594;</button>
+  <span id="ts-label"></span>
+</div>
+
+<!-- Main content -->
+<div id="content">
+  <!-- Screenshot + canvas strip -->
+  <div id="screenshot-pane">
+    <div id="empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p>Open a recording ZIP to begin</p>
+      <small>Drag &amp; drop or click "Open ZIP"</small>
+    </div>
+    <div id="screenshot-img-wrap">
+      <img id="screenshot-img" style="display:none" alt="screenshot">
+      <div id="no-screenshot" style="display:none">No screenshot for this cycle</div>
+    </div>
+    <div id="canvas-strip" style="display:none"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+    <div id="gamestate-card">
+      <h2>Game State</h2>
+      <div id="gs-content"><span style="color:#444;font-size:13px">No data loaded</span></div>
+    </div>
+    <div id="ocr-pane">
+      <h2>OCR Results</h2>
+      <div id="ocr-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- JSZip from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+
+let cycles = [];   // sorted array of parsed cycle objects
+let currentIndex = 0;
+
+// ── JSZip load ─────────────────────────────────────────────────────────────
+
+async function loadZip(file) {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.style.display = 'flex';
+  const zip = await JSZip.loadAsync(file);
+  const map = {};  // ts → { txt, png, canvases: { id: dataUrl } }
+
+  const jobs = [];
+  zip.forEach((path, entry) => {
+    if (entry.dir) return;
+    const name = path.replace(/^.*\//, '');  // strip folder prefix if any
+
+    // Timestamps end in Z (ISO format), so we anchor patterns to Z to distinguish
+    // "timestamp.png" (screenshot) from "timestamp-canvasId.png" (canvas crop).
+    const txtMatch  = name.match(/^(.+)\.txt$/);
+    const canvMatch = name.match(/^(.+Z)-([^-]+)\.png$/);
+    const pngMatch  = !canvMatch && name.match(/^(.+Z)\.png$/);
+
+    if (txtMatch) {
+      const ts = txtMatch[1];
+      jobs.push(entry.async('string').then(text => {
+        map[ts] = map[ts] || { ts, canvases: {} };
+        map[ts].txt = text;
+      }));
+    } else if (canvMatch) {
+      const [, ts, canvasId] = canvMatch;
+      jobs.push(entry.async('base64').then(b64 => {
+        map[ts] = map[ts] || { ts, canvases: {} };
+        map[ts].canvases[canvasId] = 'data:image/png;base64,' + b64;
+      }));
+    } else if (pngMatch) {
+      const ts = pngMatch[1];
+      jobs.push(entry.async('base64').then(b64 => {
+        map[ts] = map[ts] || { ts, canvases: {} };
+        map[ts].screenshot = 'data:image/png;base64,' + b64;
+      }));
+    }
+  });
+
+  await Promise.all(jobs);
+
+  cycles = Object.values(map).sort((a, b) => a.ts < b.ts ? -1 : 1);
+  cycles.forEach(c => {
+    if (c.txt) c.parsed = parseTxt(c.txt);
+  });
+
+  overlay.style.display = 'none';
+  if (cycles.length === 0) {
+    alert('No cycles found in ZIP.');
+    return;
+  }
+
+  initUI();
+  showCycle(0);
+}
+
+// ── Text parser ─────────────────────────────────────────────────────────────
+
+function parseTxt(txt) {
+  const lines = txt.split('\n');
+  const gs = {};
+  const ocr = [];
+  let inOcr = false;
+
+  for (const line of lines) {
+    if (line.startsWith('=== ')) { gs.timestamp = line.replace(/===/g, '').trim(); continue; }
+    if (line.startsWith('Game state: '))  { gs.type = line.slice(12).trim(); continue; }
+    if (line.startsWith('Killer: '))      { gs.killer = line.slice(8).trim(); continue; }
+    if (line.startsWith('Map: '))         { gs.map = line.slice(5).trim(); continue; }
+    if (line.startsWith('Detected by: ')) { gs.detectedBy = line.slice(13).trim(); continue; }
+    if (line === '--- OCR Results ---')   { inOcr = true; continue; }
+    if (!inOcr) continue;
+
+    // "id: [text | text] (confidence: 0.92)"
+    const ocrLine = line.match(/^([^:]+):\s*(.+)$/);
+    if (ocrLine) ocr.push({ id: ocrLine[1].trim(), raw: ocrLine[2].trim() });
+  }
+
+  return { gs, ocr };
+}
+
+// ── UI init ─────────────────────────────────────────────────────────────────
+
+function initUI() {
+  const scrubberWrap = document.getElementById('scrubber-wrap');
+  scrubberWrap.style.display = 'flex';
+
+  const scrubber = document.getElementById('scrubber');
+  scrubber.max = cycles.length - 1;
+  scrubber.value = 0;
+
+  document.getElementById('cycle-info').textContent =
+    `${cycles.length} cycle${cycles.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('empty-state').style.display = 'none';
+}
+
+// ── Render cycle ─────────────────────────────────────────────────────────────
+
+function showCycle(index) {
+  currentIndex = index;
+  const cycle = cycles[index];
+  document.getElementById('scrubber').value = index;
+
+  // Navigation
+  document.getElementById('btn-prev').disabled = index === 0;
+  document.getElementById('btn-next').disabled = index === cycles.length - 1;
+
+  // Timestamp
+  const tsDisplay = cycle.ts.replace(/T/, ' ').replace(/-(\d{2})-(\d{2})-(\d{3})Z$/, '.$3');
+  document.getElementById('ts-label').textContent = `Cycle ${index + 1} / ${cycles.length}  •  ${cycle.ts.replace(/-/g,' ').slice(0,22)}`;
+
+  // Screenshot
+  const img = document.getElementById('screenshot-img');
+  const noShot = document.getElementById('no-screenshot');
+  if (cycle.screenshot) {
+    img.src = cycle.screenshot;
+    img.style.display = 'block';
+    noShot.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    noShot.style.display = 'block';
+  }
+
+  // Canvas strip
+  const strip = document.getElementById('canvas-strip');
+  const canvasEntries = Object.entries(cycle.canvases || {});
+  if (canvasEntries.length) {
+    strip.style.display = 'flex';
+    strip.innerHTML = '';
+    for (const [id, dataUrl] of canvasEntries) {
+      const thumb = document.createElement('div');
+      thumb.className = 'canvas-thumb';
+      thumb.title = id;
+      thumb.innerHTML = `<img src="${dataUrl}" alt="${id}"><span>${id}</span>`;
+      thumb.onclick = () => {
+        // Click canvas thumb → show it full-size in screenshot pane
+        const active = strip.querySelector('.active');
+        if (active) active.classList.remove('active');
+        if (active === thumb) {
+          // toggle off → back to screenshot
+          img.src = cycle.screenshot || '';
+          img.style.display = cycle.screenshot ? 'block' : 'none';
+          noShot.style.display = cycle.screenshot ? 'none' : 'block';
+        } else {
+          thumb.classList.add('active');
+          img.src = dataUrl;
+          img.style.display = 'block';
+          noShot.style.display = 'none';
+        }
+      };
+      strip.appendChild(thumb);
+    }
+  } else {
+    strip.style.display = 'none';
+  }
+
+  // Game state
+  renderGameState(cycle.parsed?.gs);
+
+  // OCR
+  renderOcr(cycle.parsed?.ocr);
+}
+
+function renderGameState(gs) {
+  const el = document.getElementById('gs-content');
+  if (!gs || !gs.type) { el.innerHTML = '<span style="color:#444;font-size:13px">No game state</span>'; return; }
+
+  const typeClass = 'badge badge-' + (gs.type || 'UNKNOWN');
+  let html = `
+    <div class="gs-row">
+      <span class="gs-label">Type</span>
+      <span class="gs-value"><span class="${typeClass}">${gs.type || '—'}</span></span>
+    </div>`;
+
+  if (gs.map)        html += row('Map', gs.map);
+  if (gs.killer)     html += row('Killer', gs.killer);
+  if (gs.detectedBy) html += row('Detected by', gs.detectedBy);
+  if (gs.timestamp)  html += row('Timestamp', gs.timestamp);
+
+  el.innerHTML = html;
+}
+
+function row(label, value) {
+  return `<div class="gs-row"><span class="gs-label">${label}</span><span class="gs-value" title="${value}">${value}</span></div>`;
+}
+
+function renderOcr(ocr) {
+  const el = document.getElementById('ocr-content');
+  if (!ocr || !ocr.length) { el.innerHTML = '<span style="color:#444;font-size:13px">No OCR data</span>'; return; }
+
+  el.innerHTML = ocr.map(entry => {
+    const isPureBlack = entry.raw.startsWith('pure-black');
+    let bodyHtml = '';
+
+    if (isPureBlack) {
+      const passed = entry.raw.includes('passed=true');
+      const ratioMatch = entry.raw.match(/ratio=([\d.]+)/);
+      bodyHtml = `<span class="${passed ? 'ocr-passed' : 'ocr-failed'}">${passed ? '✓ passed' : '✗ failed'}</span>`;
+      if (ratioMatch) bodyHtml += `  ratio: ${ratioMatch[1]}`;
+    } else {
+      // "[text1 | text2] (confidence: 0.92)"
+      const confMatch = entry.raw.match(/\(confidence:\s*([\d.]+)\)/);
+      const textMatch = entry.raw.match(/^\[(.+?)\]/);
+      const texts = textMatch ? textMatch[1].split(' | ').filter(t => t.trim()) : [];
+      const conf = confMatch ? parseFloat(confMatch[1]) : null;
+      const confColor = conf === null ? '#555' : conf > 0.8 ? '#4ade80' : conf > 0.5 ? '#fbbf24' : '#f87171';
+      bodyHtml = texts.length
+        ? texts.map(t => `<span style="color:#e0e0e0">${escHtml(t)}</span>`).join('\n')
+        : '<span style="color:#444">—</span>';
+      if (conf !== null) bodyHtml += `\n<span style="color:${confColor};font-size:11px">confidence: ${conf.toFixed(2)}</span>`;
+    }
+
+    return `
+      <div class="ocr-entry">
+        <div class="ocr-header">
+          <span class="ocr-id">${escHtml(entry.id)}</span>
+          <span class="ocr-meta">${isPureBlack ? 'pure-black' : 'ocr'}</span>
+        </div>
+        <div class="ocr-body">${bodyHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Event wiring ─────────────────────────────────────────────────────────────
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadZip(e.target.files[0]);
+});
+
+document.getElementById('scrubber').addEventListener('input', e => {
+  showCycle(parseInt(e.target.value));
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => {
+  if (currentIndex > 0) showCycle(currentIndex - 1);
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (currentIndex < cycles.length - 1) showCycle(currentIndex + 1);
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (!cycles.length) return;
+  if (e.key === 'ArrowLeft'  && currentIndex > 0)              showCycle(currentIndex - 1);
+  if (e.key === 'ArrowRight' && currentIndex < cycles.length - 1) showCycle(currentIndex + 1);
+  if (e.key === 'ArrowUp')   showCycle(0);
+  if (e.key === 'ArrowDown') showCycle(cycles.length - 1);
+});
+
+// Drag & drop
+document.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('drop-overlay').classList.add('visible'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.getElementById('drop-overlay').classList.remove('visible'); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  document.getElementById('drop-overlay').classList.remove('visible');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.zip')) loadZip(file);
+});
+</script>
+</body>
+</html>
