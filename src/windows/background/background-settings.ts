@@ -14,6 +14,8 @@ export type BackgroundSettings = {
 
   enableOcrDebug: boolean;
   ocrDebugBreakOn: GameStateType | null;
+
+  enableOcrRecording: boolean;
 }
 
 export const BACKGROUND_SETTINGS = createStorage<BackgroundSettings>('BACKGROUND_SETTINGS', {
@@ -26,4 +28,6 @@ export const BACKGROUND_SETTINGS = createStorage<BackgroundSettings>('BACKGROUND
 
   enableOcrDebug: false,
   ocrDebugBreakOn: null,
+
+  enableOcrRecording: false,
 });

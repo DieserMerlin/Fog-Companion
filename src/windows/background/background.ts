@@ -14,6 +14,7 @@ import { CALLOUT_SETTINGS } from '../callouts/callout-settings';
 import { INGAME_SETTINGS } from '../main/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
 import { Mode1v1Manager } from '../main/mode-1v1/mode-1v1-manager';
+import { OcrRecordingCycle } from './ocr-recording-types';
 
 /* ============================================================================
  * App-wide event bus
@@ -26,6 +27,7 @@ type AppEvents = {
   'game-info': overwolf.games.RunningGameInfo | null,
   'ocr-res': OcrAreasResult,
   'ocr-decision': string,
+  'ocr-recording-cycle': OcrRecordingCycle,
 }
 
 declare global {
@@ -71,7 +73,7 @@ class BackgroundController {
   /** Quickly address windows by their logical names. */
   private _windows: Record<kWindowNames, OWWindow> = {} as any;
 
-  /** Heuristic “guesser” knows how to interpret OCR for DBD state. */
+  /** Heuristic "guesser" knows how to interpret OCR for DBD state. */
   private guesser = new GameStateGuesser();
 
   /** Internal OCR pump interval handle. */
@@ -326,7 +328,7 @@ class BackgroundController {
 
   /**
    * Start a periodic OCR sweep that reads specific screen regions and
-   * attempts to infer which DBD state we’re currently in (menu/loading/match).
+   * attempts to infer which DBD state we're currently in (menu/loading/match).
    *
    * NOTE: The interval, gating logic, and internal variables (including
    * `lock` / `last`) are intentionally kept the same for behavior parity.
@@ -350,6 +352,10 @@ class BackgroundController {
       }
 
       lock = true;
+
+      // Lifted for recording capture in finally block
+      let capturedImg: HTMLImageElement | null = null;
+      let capturedRes: OcrAreasResult = Object.create(null);
 
       try {
         const gi = await new Promise<overwolf.games.GetRunningGameInfoResult>((resolve) =>
@@ -389,17 +395,19 @@ class BackgroundController {
 
         // 1) Capture one screenshot and reuse it for all stages
         const img = await captureScreenshotImage();
+        capturedImg = img;
 
         if (!img) {
           // Hard fallback to old path
           const res = await performOcrAreas(OCR_AREAS as any);
+          if (res) Object.assign(capturedRes, res);
           window.bus.emit('ocr-res', res);
           await this.evaluateRes(res!);
           return;
         }
 
-        // We’ll accumulate on the same result map
-        const res: OcrAreasResult = Object.create(null);
+        // Share the same object so runSubset mutations are visible in capturedRes
+        const res: OcrAreasResult = capturedRes;
 
         // Helper to run a subset against the captured image, publish, and try early-exit
         const runSubset = async (subset: AnyScanArea[]) => {
@@ -432,6 +440,37 @@ class BackgroundController {
       } finally {
         last = Date.now();
         lock = false;
+
+        // Emit recording cycle if recording is active
+        if (BACKGROUND_SETTINGS.getValue().enableOcrRecording) {
+          const canvasDataUrls: Record<string, string> = {};
+          const cv = window.cache.canvas as Record<string, HTMLCanvasElement | null> | undefined;
+          for (const [id, canvas] of Object.entries(cv ?? {})) {
+            if (canvas) try { canvasDataUrls[id] = canvas.toDataURL('image/png'); } catch { }
+          }
+
+          let screenshotDataUrl: string | null = null;
+          if (capturedImg) {
+            const tmp = document.createElement('canvas');
+            tmp.width = capturedImg.naturalWidth;
+            tmp.height = capturedImg.naturalHeight;
+            const ctx = tmp.getContext('2d');
+            if (ctx) { ctx.drawImage(capturedImg, 0, 0); screenshotDataUrl = tmp.toDataURL('image/png'); }
+          }
+
+          // Strip undefined values (e.g. the settings-back-btn alias before map runs)
+          const ocrResult = Object.fromEntries(
+            Object.entries(capturedRes).filter(([, v]) => v !== undefined)
+          ) as typeof capturedRes;
+
+          window.bus.emit('ocr-recording-cycle', {
+            ts: Date.now(),
+            gameState: { ...this.guesser.state },
+            ocrResult,
+            screenshotDataUrl,
+            canvasDataUrls,
+          });
+        }
       }
     };
 

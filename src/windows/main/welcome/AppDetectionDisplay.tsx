@@ -6,6 +6,7 @@ import { useRef } from "react";
 import { DetectionCause, GameStateType } from "../../../game_state/GameState";
 import { useGameState } from "../../../utils/hooks/gamestate-hook";
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
+import { useRecording } from "../recording/recording-store";
 import { HLTElement } from "./tutorials/AppHighlightTutorial";
 import { HomeViewTutorial } from "./tutorials/highlight/HomeViewTutorial";
 
@@ -54,6 +55,7 @@ export const AppDetectionDisplay = () => {
   const toggleDebug = () => BACKGROUND_SETTINGS.update({ enableOcrDebug: !BACKGROUND_SETTINGS.getValue().enableOcrDebug });
 
   const clickRef = useRef<{ count: number, lastClick: number }>({ count: 0, lastClick: 0 });
+  const stateClickRef = useRef<{ count: number, lastClick: number }>({ count: 0, lastClick: 0 });
 
   const handleClick = () => {
     if (Date.now() - clickRef.current.lastClick < 300) clickRef.current.count++;
@@ -66,6 +68,17 @@ export const AppDetectionDisplay = () => {
     }
   }
 
+  const handleStateClick = () => {
+    if (Date.now() - stateClickRef.current.lastClick < 300) stateClickRef.current.count++;
+    else stateClickRef.current.count = 1;
+    stateClickRef.current.lastClick = Date.now();
+
+    if (stateClickRef.current.count >= 3) {
+      useRecording.setState({ open: true });
+      stateClickRef.current.count = 0;
+    }
+  }
+
   return (
     <Stack direction={'row'} spacing={.5} alignItems={'center'} width={'100%'}>
       <HLTElement {...HomeViewTutorial.SmartFeaturesState}>
@@ -74,7 +87,7 @@ export const AppDetectionDisplay = () => {
             <TipsAndUpdates onClick={handleClick} />
             {smartDetection ? (
               <Stack spacing={-.5} justifyContent={'center'} style={ellipsisStyle}>
-                <span style={firstLineStyle}>State: <b>{(gs.type === GameStateType.MATCH && !!gs.map && <>Match ({gs.map.name})</>) || (HumanReadableGameState[gs.type] || gs.type)}</b></span>
+                <span style={firstLineStyle} onClick={handleStateClick}>State: <b>{(gs.type === GameStateType.MATCH && !!gs.map && <>Match ({gs.map.name})</>) || (HumanReadableGameState[gs.type] || gs.type)}</b></span>
                 {!!gs.detectedBy && <span style={secondLineStyle}>Guess based on: <b>{(HumanReadableDetectionCause[gs.detectedBy] || gs.detectedBy)}</b></span>}
                 {!gs.detectedBy && gs.type === GameStateType.UNKNOWN && <span style={secondLineStyle}>Open menu to continue detection.</span>}
                 {!gs.detectedBy && gs.type === GameStateType.CLOSED && <span style={secondLineStyle}>Open DBD to start detection.</span>}

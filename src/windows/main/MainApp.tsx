@@ -12,11 +12,15 @@ import { AppAbout } from "./about/AppAbout";
 import { AccountView } from "./account/AccountView";
 import { LoginDialogWrapper } from "./account/LoginDialog";
 import { MainMode1v1View } from "./mode-1v1/MainMode1v1View";
+import { RecordingModal } from "./recording/RecordingModal";
+import { initRecordingBus } from "./recording/recording-store";
 import { AppSettings } from "./settings/AppSettings";
 import { SettingsHotkey } from "./settings/AppSettingsHotkey";
 import { MainAppTab, useMainApp } from "./use-main-app";
 import { TutorialsOverlay, useTutorial } from "./welcome/tutorials/AppTutorial";
 import { AppWelcome } from "./welcome/AppWelcome";
+
+initRecordingBus();
 
 const AppTabPanel = memo((props: PropsWithChildren) => {
   return (
@@ -101,6 +105,7 @@ export const MainApp = () => {
   return (
     <BaseWindow resizable onGoHome={() => useMainApp.setState({ tab: MainAppTab.WELCOME })}>
       <AppSnackBarHost />
+      <RecordingModal />
       <AppConnectionHost />
       <Stack position={'fixed'} top={0} left={0} m={0} p={0} width={'100vw'} height={'100vh'} overflow={'hidden'}>
         <TabContext value={tab}>
