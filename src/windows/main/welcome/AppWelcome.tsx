@@ -5,7 +5,7 @@ import { memo, PropsWithChildren, ReactElement, ReactNode, useCallback } from "r
 import { BACKGROUND_SETTINGS } from "../../background/background-settings";
 import { INGAME_SETTINGS } from "../in_game-settings";
 import { SettingsHotkey } from "../settings/AppSettingsHotkey";
-import { Enable1v1ModeFeature, EnableCalloutFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
+import { Enable1v1ModeFeature, EnableCalloutFeature, EnableMapDetectionFeature, EnableSmartFeatures } from "../settings/EnableDisableFeatures";
 import { AppSettingsSection, useAppSettings } from "../settings/use-app-settings";
 import { MainAppTab, useMainApp } from "../use-main-app";
 import { AppDetectionDisplay } from "./AppDetectionDisplay";
@@ -180,13 +180,6 @@ const SmartFeaturesCard = memo((props: CardProps) => {
             <small style={{ opacity: .6 }}>This allows to auto-select callout graphics.</small>
           </Stack>
           <EnableMapDetectionFeature small />
-        </Stack>
-        <Stack direction={'row'} alignItems={'center'} fontSize={'.8em'}>
-          <Stack flexGrow={1}>
-            <span>Auto-Detect killers</span>
-            <small style={{ opacity: .6 }}>Tries to identify the current killer for stats and switch between M1/M2 for timer-start.</small>
-          </Stack>
-          <EnableKillerDetectionFeature small />
         </Stack>
         <span style={{ flexGrow: 1 }} />
         <AppDetectionDisplay />

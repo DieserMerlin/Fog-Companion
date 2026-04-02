@@ -15,6 +15,7 @@ import { INGAME_SETTINGS } from '../main/in_game-settings';
 import { AppMode, BACKGROUND_SETTINGS, BackgroundSettings } from './background-settings';
 import { Mode1v1Manager } from '../main/mode-1v1/mode-1v1-manager';
 import { OcrRecordingCycle } from './ocr-recording-types';
+import { OBSManager } from './obs/OBSManager';
 
 /* ============================================================================
  * App-wide event bus
@@ -95,6 +96,9 @@ class BackgroundController {
 
     // Initialize Mode1v1ChallangeManager
     Mode1v1Manager.Instance().enableSyncHost();
+
+    // Initialize OBS automation manager
+    OBSManager.Instance().init();
 
     // Initialize focused windows object.
     window.focusedWindows = [];

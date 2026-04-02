@@ -91,6 +91,16 @@ export const HomeViewTutorial = {
     content: <>
       <span>Also you can see which killer the app thinks you're playing.</span>
       <span>The certainty upgrades over time, don't be surprised to see a wrong killer at first!</span>
+      <small>Click the indicator to toggle killer detection on/off.</small>
     </>
-  }
+  },
+  ObsIndicator: {
+    hltId: "home-view-obs-indicator",
+    contentPosition: 'above',
+    title: "OBS Automation",
+    content: <>
+      <span>Automate OBS Studio based on what the app detects — switch scenes when a match starts, for example.</span>
+      <small>Click the indicator to enable/disable. Use the ⚙ icon to configure automations and connect to OBS.</small>
+    </>
+  },
 } as const satisfies HighlightTutorial;

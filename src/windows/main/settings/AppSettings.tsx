@@ -18,6 +18,7 @@ import { AppCustomMapSettings } from "./AppCustomMapSettings";
 import { SettingsHotkey } from './AppSettingsHotkey';
 import { Enable1v1ModeFeature, EnableKillerDetectionFeature, EnableMapDetectionFeature } from './EnableDisableFeatures';
 import { MapBrowserHotkeys } from './MapBrowserHotkeys';
+import { ObsSettingsSection } from './obs/ObsSettingsSection';
 import { AppSettingsSection, useAppSettings } from './use-app-settings';
 
 /** ---------- Primitives ---------- */
@@ -335,6 +336,15 @@ export const AppSettings = () => {
         description="A timer tool to track your time in-game."
       >
         <Mode1v1Settings />
+      </SettingsSection>
+
+      <SettingsSection
+        expanded={expand === AppSettingsSection.OBS}
+        onExpand={handleExpanded(AppSettingsSection.OBS)}
+        label="OBS Automation"
+        description="Automate OBS Studio based on game-state transitions."
+      >
+        <ObsSettingsSection />
       </SettingsSection>
 
       <SettingsSection disabled label="Mode: Scrim/Tournament" description="Yet to be implemented" />
