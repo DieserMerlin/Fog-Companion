@@ -316,7 +316,11 @@ export class GameStateGuesser {
           && tokens.map(l => l.split(" ").filter(l => !!l)).flat().length < 15
         ) && DetectionCause.MAIN_MENU_TEXT;
       else if (type === 'menu-btn') { // Edge case: "play" in game-start disclaimer text.
-        const menuBtnHits = tokens.filter(text => ["play", "continue", "cancel"].includes(text)).length;
+        // During a match "cancel" is a killer power label, not a menu button — exclude it.
+        const validTokens = this._state.type === GameStateType.MATCH
+          ? ['play', 'continue']
+          : ['play', 'continue', 'cancel'];
+        const menuBtnHits = tokens.filter(text => validTokens.includes(text)).length;
         const requiredHits = this._state.type === GameStateType.UNKNOWN ? 2 : 1;
         return (menuBtnHits >= requiredHits) && DetectionCause.MENU_BUTTON_TEXT;
       }
